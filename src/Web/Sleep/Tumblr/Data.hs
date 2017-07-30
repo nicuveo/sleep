@@ -187,14 +187,14 @@ data PostList = PostList { postBlog :: Blog
 -- exported functions
 
 postType :: Post -> PostType
-postType (AnswerPost {}) = AnswerType
-postType (AudioPost  {}) = AudioType
-postType (ChatPost   {}) = ChatType
-postType (LinkPost   {}) = LinkType
-postType (PhotoPost  {}) = PhotoType
-postType (QuotePost  {}) = QuoteType
-postType (TextPost   {}) = TextType
-postType (VideoPost  {}) = VideoType
+postType AnswerPost {} = AnswerType
+postType AudioPost  {} = AudioType
+postType ChatPost   {} = ChatType
+postType LinkPost   {} = LinkType
+postType PhotoPost  {} = PhotoType
+postType QuotePost  {} = QuoteType
+postType TextPost   {} = TextType
+postType VideoPost  {} = VideoType
 
 postId :: Post -> Int
 postId = pId . postBase
@@ -411,7 +411,7 @@ instance FromJSON Post where
             return $ VideoPost base caption player
 
 instance FromJSON BlogList where
-  parseJSON = withObject "blog list" $ \o -> do
+  parseJSON = withObject "blog list" $ \o ->
     BlogList <$> o .: "blogs"
 
 instance FromJSON PostList where

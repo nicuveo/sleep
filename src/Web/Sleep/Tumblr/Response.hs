@@ -60,7 +60,7 @@ metaToError :: Meta -> Error
 metaToError (Meta c m) = ServerError c m
 
 jsonError :: String -> Error
-jsonError s = ClientError 1 s -- FIXME
+jsonError = ClientError 1 -- FIXME
 
 
 
