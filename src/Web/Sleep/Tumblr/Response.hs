@@ -7,13 +7,14 @@
 
 -- module
 
-module Web.Sleep.Tumblr.Response (getResponse, getResponseM) where
+module Web.Sleep.Tumblr.Response (getResponse, getResponseE, getResponseM) where
 
 
 
 -- imports
 
 import           Control.Arrow
+import           Control.Exception.Safe
 import           Control.Monad.Except
 import           Data.Aeson
 import           Data.Aeson.Types
@@ -34,6 +35,8 @@ getResponse rd = do
   where isOk :: Envelope a -> Bool
         isOk (metaStatus . envMeta -> status) = status == 200
 
+getResponseE :: (MonadThrow m, FromJSON a) => RawData -> m a
+getResponseE = either throw return . getResponse
 
 getResponseM :: (MonadError Error m, FromJSON a) => RawData -> m a
 getResponseM = either throwError return . getResponse
