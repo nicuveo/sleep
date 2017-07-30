@@ -1,10 +1,6 @@
-{- LANGUAGE DeriveDataTypeable    #-}
 {-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
-{- LANGUAGE OverloadedStrings     #-}
-{- LANGUAGE TupleSections         #-}
-{- LANGUAGE TypeFamilies          #-}
 
 
 
@@ -48,10 +44,10 @@ module Web.Sleep.Tumblr.Methods (
 
 -- imports
 
-import qualified Data.Map as M
+import           Control.Monad.Reader
+import qualified Data.Map               as M
 import           Data.Time.Clock
 import           Data.Typeable
-import           Control.Monad.Reader
 
 import           Web.Sleep.Common.Misc
 import           Web.Sleep.Tumblr.Data
