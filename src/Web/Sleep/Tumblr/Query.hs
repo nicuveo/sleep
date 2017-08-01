@@ -11,6 +11,7 @@ module Web.Sleep.Tumblr.Query (
   ToParameter(..),
   QueryParam(..),
   (&=),
+  toURL,
   ) where
 
 
@@ -47,10 +48,13 @@ class (Typeable p, ToParameter p) => QueryParam q p where
 (&=) :: (Monad m, QueryParam q p) => m (Query q r) -> p -> m (Query q r)
 q &= p = liftM2 pAdd q $ pure p
 
+toURL :: Query q r -> URL
+toURL (Query path params) = URL urlType path $ M.elems params
+  where urlType = Absolute $ Host (HTTP True) "api.tumblr.com/v2" Nothing
+
 
 
 -- instances
 
 instance Show (Query q r) where
-  show (Query path params) = exportURL $ URL urlType path $ M.elems params
-    where urlType = Absolute $ Host (HTTP True) "api.tumblr.com/v2" Nothing
+  show = exportURL . toURL
