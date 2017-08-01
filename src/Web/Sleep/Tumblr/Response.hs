@@ -7,7 +7,7 @@
 
 -- module
 
-module Web.Sleep.Tumblr.Response (getResponse, getResponseE, getResponseM) where
+module Web.Sleep.Tumblr.Response (getResponse, getResponseT, getResponseE) where
 
 
 
@@ -35,11 +35,11 @@ getResponse rd = do
   where isOk :: Envelope a -> Bool
         isOk (metaStatus . envMeta -> status) = status == 200
 
-getResponseE :: (MonadThrow m, FromJSON a) => RawData -> m a
-getResponseE = either throw return . getResponse
+getResponseT :: (MonadThrow m, FromJSON a) => RawData -> m a
+getResponseT = either throw return . getResponse
 
-getResponseM :: (MonadError Error m, FromJSON a) => RawData -> m a
-getResponseM = either throwError return . getResponse
+getResponseE :: (MonadError Error m, FromJSON a) => RawData -> m a
+getResponseE = either throwError return . getResponse
 
 
 
