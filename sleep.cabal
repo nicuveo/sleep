@@ -17,6 +17,7 @@ library
   exposed-modules:     Web.Sleep,
                        Web.Sleep.Common.Misc,
                        Web.Sleep.Tumblr,
+                       Web.Sleep.Tumblr.Context,
                        Web.Sleep.Tumblr.Data,
                        Web.Sleep.Tumblr.Error,
                        Web.Sleep.Tumblr.Methods,
