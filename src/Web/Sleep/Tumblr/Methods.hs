@@ -1,6 +1,8 @@
+{-# LANGUAGE DataKinds             #-}
 {-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE TypeFamilies          #-}
 
 
 
@@ -17,25 +19,20 @@ module Web.Sleep.Tumblr.Methods (
   HasAuthToken(..),
   MayHaveAuthToken(..),
   -- blog info
-  QInfo,
   getBlogInfo,
   getInfo,
-  -- blog info
-  QLikes,
+  -- blog likes
   getBlogLikes,
   getLikes,
   -- blog posts
-  QPosts,
   getBlogPosts,
   getPosts,
   getBlogPostsByType,
   getPostsByType,
   -- blog posts queue
-  QPostsQueue,
   getBlogPostsQueue,
   getPostsQueue,
   -- blog posts draft
-  QPostsDraft,
   getBlogPostsDraft,
   getPostsDraft,
   ) where
@@ -92,96 +89,101 @@ instance {-# OVERLAPPABLE #-} MayHaveAuthToken a where
 
 -- blog info
 
-data QInfo;
-instance QueryParam QInfo APIKey;
-instance QueryParam QInfo AuthToken;
+instance QueryParam QInfo APIKey
+instance QueryParam QInfo AuthToken
+type instance QueryProtocol QInfo = QGet
+type instance QueryResult   QInfo = Blog
 
-getBlogInfo :: (MonadReader c m, HasAPIKey c, MayHaveAuthToken c) => BlogId -> m (Query QInfo Blog)
+getBlogInfo :: (MonadReader c m, HasAPIKey c, MayHaveAuthToken c) => BlogId -> m (Query QInfo)
 getBlogInfo (BlogId bid) = tryAddAuthToken $ addAPIKey $ mkQuery $ "blog/" ++ bid ++ "/info"
 
-getInfo :: (MonadReader c m, HasAPIKey c, MayHaveAuthToken c, HasBlogId c) => m (Query QInfo Blog)
+getInfo :: (MonadReader c m, HasAPIKey c, MayHaveAuthToken c, HasBlogId c) => m (Query QInfo)
 getInfo = asks getBlogId >>= getBlogInfo
 
 
 
 -- blog likes
 
-data QLikes;
-instance QueryParam QLikes APIKey;
-instance QueryParam QLikes AuthToken;
-instance QueryParam QLikes Limit;
-instance QueryParam QLikes PostRange;
+instance QueryParam QLikes APIKey
+instance QueryParam QLikes AuthToken
+instance QueryParam QLikes Limit
+instance QueryParam QLikes PostRange
+type instance QueryProtocol QLikes = QGet
+type instance QueryResult   QLikes = PostList
 
-getBlogLikes :: (MonadReader c m, HasAPIKey c, MayHaveAuthToken c) => BlogId -> m (Query QLikes PostList)
+getBlogLikes :: (MonadReader c m, HasAPIKey c, MayHaveAuthToken c) => BlogId -> m (Query QLikes)
 getBlogLikes (BlogId bid) = tryAddAuthToken $ addAPIKey $ mkQuery $ "blog/" ++ bid ++ "/likes"
 
-getLikes :: (MonadReader c m, HasAPIKey c, MayHaveAuthToken c, HasBlogId c) => m (Query QLikes PostList)
+getLikes :: (MonadReader c m, HasAPIKey c, MayHaveAuthToken c, HasBlogId c) => m (Query QLikes)
 getLikes = asks getBlogId >>= getBlogLikes
 
 
 
 -- blog posts
 
-data QPosts;
 instance QueryParam QPosts APIKey;
 instance QueryParam QPosts AuthToken;
 instance QueryParam QPosts Limit;
+type instance QueryProtocol QPosts = QGet
+type instance QueryResult   QPosts = PostList
 
-getBlogPosts :: (MonadReader c m, HasAPIKey c, MayHaveAuthToken c) => BlogId -> m (Query QPosts PostList)
+getBlogPosts :: (MonadReader c m, HasAPIKey c, MayHaveAuthToken c) => BlogId -> m (Query QPosts)
 getBlogPosts (BlogId bid) = tryAddAuthToken $ addAPIKey $ mkQuery $ "blog/" ++ bid ++ "/posts"
 
-getPosts :: (MonadReader c m, HasAPIKey c, MayHaveAuthToken c, HasBlogId c) => m (Query QPosts PostList)
+getPosts :: (MonadReader c m, HasAPIKey c, MayHaveAuthToken c, HasBlogId c) => m (Query QPosts)
 getPosts = asks getBlogId >>= getBlogPosts
 
-getBlogPostsByType :: (MonadReader c m, HasAPIKey c, MayHaveAuthToken c) => BlogId -> PostType -> m (Query QPosts PostList)
+getBlogPostsByType :: (MonadReader c m, HasAPIKey c, MayHaveAuthToken c) => BlogId -> PostType -> m (Query QPosts)
 getBlogPostsByType (BlogId bid) t = tryAddAuthToken $ addAPIKey $ mkQuery $ "blog/" ++ bid ++ "/posts/" ++ show t
 
-getPostsByType :: (MonadReader c m, HasAPIKey c, MayHaveAuthToken c, HasBlogId c) => PostType -> m (Query QPosts PostList)
+getPostsByType :: (MonadReader c m, HasAPIKey c, MayHaveAuthToken c, HasBlogId c) => PostType -> m (Query QPosts)
 getPostsByType t = asks getBlogId >>= flip getBlogPostsByType t
 
 
 
 -- blog posts queue
 
-data QPostsQueue;
 instance QueryParam QPostsQueue APIKey;
 instance QueryParam QPostsQueue AuthToken;
 instance QueryParam QPostsQueue Limit;
+type instance QueryProtocol QPostsQueue = QGet
+type instance QueryResult   QPostsQueue = PostList
 
-getBlogPostsQueue :: (MonadReader c m, HasAuthToken c) => BlogId -> m (Query QPostsQueue PostList)
+getBlogPostsQueue :: (MonadReader c m, HasAuthToken c) => BlogId -> m (Query QPostsQueue)
 getBlogPostsQueue (BlogId bid) = addAuthToken $ mkQuery $ "blog/" ++ bid ++ "/posts/queue"
 
-getPostsQueue :: (MonadReader c m, HasAPIKey c, HasAuthToken c, HasBlogId c) => m (Query QPostsQueue PostList)
+getPostsQueue :: (MonadReader c m, HasAPIKey c, HasAuthToken c, HasBlogId c) => m (Query QPostsQueue)
 getPostsQueue = asks getBlogId >>= getBlogPostsQueue
 
 
 
 -- blog posts draft
 
-data QPostsDraft;
 instance QueryParam QPostsDraft APIKey;
 instance QueryParam QPostsDraft AuthToken;
+type instance QueryProtocol QPostsDraft = QGet
+type instance QueryResult   QPostsDraft = PostList
 
-getBlogPostsDraft :: (MonadReader c m, HasAuthToken c) => BlogId -> m (Query QPostsDraft PostList)
+getBlogPostsDraft :: (MonadReader c m, HasAuthToken c) => BlogId -> m (Query QPostsDraft)
 getBlogPostsDraft (BlogId bid) = addAuthToken $ mkQuery $ "blog/" ++ bid ++ "/posts/draft"
 
-getPostsDraft :: (MonadReader c m, HasAPIKey c, HasAuthToken c, HasBlogId c) => m (Query QPostsDraft PostList)
+getPostsDraft :: (MonadReader c m, HasAPIKey c, HasAuthToken c, HasBlogId c) => m (Query QPostsDraft)
 getPostsDraft = asks getBlogId >>= getBlogPostsDraft
 
 
 
 -- local helpers
 
-mkQuery :: Monad m => String -> m (Query q r)
+mkQuery :: Monad m => String -> m (Query q)
 mkQuery = return . flip Query M.empty
 
-addAPIKey :: (MonadReader c m, HasAPIKey c, QueryParam q APIKey) => m (Query q r) -> m (Query q r)
+addAPIKey :: (MonadReader c m, HasAPIKey c, QueryParam q APIKey) => m (Query q) -> m (Query q)
 addAPIKey q = asks getAPIKey >>= (q &=)
 
-addAuthToken :: (MonadReader c m, HasAuthToken c, QueryParam q AuthToken) => m (Query q r) -> m (Query q r)
+addAuthToken :: (MonadReader c m, HasAuthToken c, QueryParam q AuthToken) => m (Query q) -> m (Query q)
 addAuthToken q = asks getAuthToken >>= (q &=)
 
-tryAddAuthToken :: (MonadReader c m, MayHaveAuthToken c, QueryParam q AuthToken) => m (Query q r) -> m (Query q r)
+tryAddAuthToken :: (MonadReader c m, MayHaveAuthToken c, QueryParam q AuthToken) => m (Query q) -> m (Query q)
 tryAddAuthToken q = asks tryGetAuthToken >>= doIt
   where doIt Nothing  = q
         doIt (Just t) = q &= t
