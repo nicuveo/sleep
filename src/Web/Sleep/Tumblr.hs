@@ -1,15 +1,15 @@
-{-# LANGUAGE FlexibleContexts       #-}
-{-# LANGUAGE FlexibleInstances      #-}
-{-# LANGUAGE OverloadedStrings      #-}
-{-# LANGUAGE TupleSections          #-}
-{-# LANGUAGE TypeFamilies           #-}
-{-# LANGUAGE MultiParamTypeClasses  #-}
+{-# LANGUAGE FlexibleContexts      #-}
+{-# LANGUAGE FlexibleInstances     #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE OverloadedStrings     #-}
+{-# LANGUAGE TupleSections         #-}
+{-# LANGUAGE TypeFamilies          #-}
 
 
 
 -- module
 
-module Web.Sleep.Tumblr () where
+module Web.Sleep.Tumblr (test) where
 
 
 
@@ -21,20 +21,11 @@ import           Data.Time.Clock.POSIX
 import           Data.Typeable
 
 import           Web.Sleep.Common.Misc
+import           Web.Sleep.Tumblr.Context
 import           Web.Sleep.Tumblr.Data
-import           Web.Sleep.Tumblr.Query
 import           Web.Sleep.Tumblr.Methods
+import           Web.Sleep.Tumblr.Query
 import           Web.Sleep.Tumblr.Response
-
-
-
-
-
-
-
-
-
-
 
 
 -- blog following
@@ -55,19 +46,10 @@ import           Web.Sleep.Tumblr.Response
 
 -- debug
 
-type Context = (String, String)
-
-instance HasAPIKey        Context where getAPIKey       = APIKey    . fst
-instance HasAuthToken     Context where getAuthToken    = AuthToken . snd
-instance MayHaveAuthToken Context where tryGetAuthToken = Just . getAuthToken
-
 test :: IO ()
 test = do
-  let c = ("key", "token") :: Context
-  let q = flip runReader c $ getBlogLikes (BlogId "test") &= Limit 13
-  print q
--- case getResponse res of
---   Left  error   -> print $ "failed: " ++ error
---   Right payload -> do
---     print $ blogTitle $ postBlog payload
---     sequence_ $ Prelude.putStrLn . exportURL . photoURL . photoOriginal <$> (postPhotos =<< postList payload)
+  let apiKey = "FIXME"
+  bi <- withKey apiKey $ call =<< getBlogInfo "beesandbombs.tumblr.com"
+  case bi of
+   Left  error -> putStrLn $ "failed: " ++ show error
+   Right blog  -> print blog
