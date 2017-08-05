@@ -1,8 +1,9 @@
-{-# LANGUAGE DataKinds             #-}
-{-# LANGUAGE FlexibleContexts      #-}
-{-# LANGUAGE FlexibleInstances     #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE TypeFamilies          #-}
+{-# LANGUAGE DataKinds                  #-}
+{-# LANGUAGE FlexibleContexts           #-}
+{-# LANGUAGE FlexibleInstances          #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE MultiParamTypeClasses      #-}
+{-# LANGUAGE TypeFamilies               #-}
 
 
 
@@ -43,6 +44,7 @@ module Web.Sleep.Tumblr.Methods (
 
 import           Control.Monad.Reader
 import qualified Data.Map               as M
+import           Data.String
 import           Data.Time.Clock
 import           Data.Typeable
 
@@ -54,8 +56,8 @@ import           Web.Sleep.Tumblr.Query
 
 -- parameters
 
-newtype BlogId    = BlogId    String deriving (Show, Eq, Typeable)
-newtype APIKey    = APIKey    String deriving (Show, Eq, Typeable)
+newtype BlogId    = BlogId    String deriving (Show, Eq, Typeable, IsString)
+newtype APIKey    = APIKey    String deriving (Show, Eq, Typeable, IsString)
 newtype AuthToken = AuthToken String deriving (Show, Eq, Typeable)
 newtype Limit     = Limit     Int    deriving (Show, Eq, Typeable)
 data PostRange = Offset Int
