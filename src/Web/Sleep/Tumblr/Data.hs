@@ -336,15 +336,16 @@ instance FromJSON Video where
 
 instance FromJSON Blog where
   parseJSON = withObject "blog" $ \o -> do
-    title   <- o .: "title"
-    name    <- o .: "name"
-    desc    <- o .: "description"
-    posts   <- o .: "posts"
-    updated <- fromTimestamp <$> o .: "updated"
-    ask     <- o .: "ask"
-    likes   <- o .:? "likes"
-    askAnon <- o .:? "ask_anon" .!= False
-    blocked <- o .:? "is_blocked_from_primary" .!= False
+    b       <- o .: "blog"
+    title   <- b .: "title"
+    name    <- b .: "name"
+    desc    <- b .: "description"
+    posts   <- b .: "posts"
+    updated <- fromTimestamp <$> b .: "updated"
+    ask     <- b .: "ask"
+    likes   <- b .:? "likes"
+    askAnon <- b .:? "ask_anon" .!= False
+    blocked <- b .:? "is_blocked_from_primary" .!= False
     return $ Blog title name desc posts updated ask askAnon blocked likes
 
 instance FromJSON PostBase where
