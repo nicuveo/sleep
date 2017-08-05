@@ -65,7 +65,7 @@ data PostRange = Offset Int
                | After  UTCTime
                deriving (Show, Eq, Typeable)
 
-instance ToParameter APIKey    where mkParam (APIKey    p) = ("api-key", p)
+instance ToParameter APIKey    where mkParam (APIKey    p) = ("api_key", p)
 instance ToParameter AuthToken where mkParam (AuthToken p) = ("auth-token", p)
 instance ToParameter Limit     where mkParam (Limit     p) = ("limit", show $ clamp 1 20 p)
 instance ToParameter PostRange where mkParam (Offset    o) = ("offset", show o)
