@@ -36,7 +36,7 @@ import           Network.HTTP.Conduit
 import           Network.URL
 import qualified Web.Authenticate.OAuth as OA
 
-import           Web.Sleep.Tumblr.Auth
+import           Web.Sleep.Tumblr.Auth (AuthCred)
 import           Web.Sleep.Tumblr.Error
 import           Web.Sleep.Tumblr.Methods
 import           Web.Sleep.Tumblr.Query

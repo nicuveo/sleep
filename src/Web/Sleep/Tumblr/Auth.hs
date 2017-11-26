@@ -4,7 +4,20 @@
 
 -- module
 
-module Web.Sleep.Tumblr.Auth where
+module Web.Sleep.Tumblr.Auth (
+  -- exported types
+  AppName,
+  AppKey,
+  AppSecret,
+  OAuth,
+  Credential,
+  AuthCred,
+  -- exported functions
+  tumblrOAuth,
+  getAuthCred,
+  getDebugAuthCred,
+  getAuthCredM,
+  ) where
 
 
 
@@ -44,18 +57,21 @@ tumblrOAuth name key secret =
 
 -- helpers
 
-getAuthorizeUrl :: MonadIO m => N.Manager -> OAuth -> m String
-getAuthorizeUrl manager oauth = do
-  cred <- OA.getTemporaryCredential oauth manager
-  return $ OA.authorizeUrl oauth cred
+type URLCallback m = String -> m ()
 
-getDebugAuthorizeUrl :: MonadIO m => OAuth -> m String
-getDebugAuthorizeUrl oauth = do
+getAuthCred :: MonadIO m => URLCallback m -> N.Manager -> OAuth -> m AuthCred
+getAuthCred callback manager oauth = do
+  tempcred <- OA.getTemporaryCredential oauth manager
+  callback $ OA.authorizeUrl oauth tempcred
+  cred <- OA.getAccessToken oauth tempcred manager
+  return (oauth, cred)
+
+getDebugAuthCred :: MonadIO m => URLCallback m -> OAuth -> m AuthCred
+getDebugAuthCred callback oauth = do
   manager <- liftIO $ N.newManager N.defaultManagerSettings
-  getAuthorizeUrl manager oauth
+  getAuthCred callback manager oauth
 
-getAuthorizeUrlM :: (MonadIO m, MonadReader r m, N.HasHttpManager r) => OAuth -> m String
-getAuthorizeUrlM oauth = do
+getAuthCredM :: (MonadIO m, MonadReader r m, N.HasHttpManager r) => URLCallback m -> OAuth -> m AuthCred
+getAuthCredM callback oauth = do
   manager <- asks N.getHttpManager
-  cred <- OA.getTemporaryCredential oauth manager
-  return $ OA.authorizeUrl oauth cred
+  getAuthCred callback manager oauth
