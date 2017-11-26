@@ -26,8 +26,10 @@ module Web.Sleep.Tumblr.Auth (
 import           Control.Monad.IO.Class
 import           Control.Monad.Reader
 import           Data.ByteString
-import qualified Network.HTTP.Client    as N
-import qualified Web.Authenticate.OAuth as OA
+import qualified Network.HTTP.Client      as N
+import qualified Web.Authenticate.OAuth   as OA
+
+import           Web.Sleep.Common.Network
 
 
 
@@ -66,12 +68,12 @@ getAuthCred callback manager oauth = do
   cred <- OA.getAccessToken oauth tempcred manager
   return (oauth, cred)
 
+getAuthCredM :: MonadManager r m => URLCallback m -> OAuth -> m AuthCred
+getAuthCredM callback oauth = do
+  manager <- asks N.getHttpManager
+  getAuthCred callback manager oauth
+
 getDebugAuthCred :: MonadIO m => URLCallback m -> OAuth -> m AuthCred
 getDebugAuthCred callback oauth = do
   manager <- liftIO $ N.newManager N.defaultManagerSettings
-  getAuthCred callback manager oauth
-
-getAuthCredM :: (MonadIO m, MonadReader r m, N.HasHttpManager r) => URLCallback m -> OAuth -> m AuthCred
-getAuthCredM callback oauth = do
-  manager <- asks N.getHttpManager
   getAuthCred callback manager oauth
