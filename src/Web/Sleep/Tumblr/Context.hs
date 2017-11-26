@@ -4,6 +4,7 @@
 {-# LANGUAGE KindSignatures        #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE TypeFamilies          #-}
+{-# LANGUAGE TupleSections         #-}
 {-# LANGUAGE UndecidableInstances  #-}
 
 
@@ -33,7 +34,9 @@ import           Data.ByteString.Lazy
 import           Data.Proxy
 import           Network.HTTP.Conduit
 import           Network.URL
+import qualified Web.Authenticate.OAuth as OA
 
+import           Web.Sleep.Tumblr.Auth
 import           Web.Sleep.Tumblr.Error
 import           Web.Sleep.Tumblr.Methods
 import           Web.Sleep.Tumblr.Query
@@ -54,13 +57,19 @@ class Monad m => HasHTTPPost c m where
 -- helper functions for simple usage
 
 anonymously :: MonadIO m => ReaderT NoContext m r -> m r
-anonymously = flip runReaderT NoContext
+anonymously = with NoContext
 
 withKey :: MonadIO m => APIKey -> ReaderT JustAPIKey m r -> m r
-withKey = flip runReaderT . JustAPIKey
+withKey key = with $ JustAPIKey key
 
-withAuth :: APIKey -> AuthToken -> ReaderT AuthAndKey m r -> m r
-withAuth k t = flip runReaderT $ AuthAndKey (k, t)
+withAuth :: AuthCred -> ReaderT JustAuthCred m r -> m r
+withAuth auth = with $ JustAuthCred auth
+
+withBlog :: BlogId -> ReaderT (BlogContext c) m r -> ReaderT c m r
+withBlog bid = withReaderT $ BlogContext . (bid,)
+
+with :: c -> ReaderT c m r -> m r
+with = flip runReaderT
 
 
 
@@ -80,13 +89,30 @@ callE q = ask >>= getRawData q >>= decodeE
 
 -- internal simple contexts
 
-data    NoContext  = NoContext
-newtype JustAPIKey = JustAPIKey APIKey
-newtype AuthAndKey = AuthAndKey (APIKey, AuthToken)
+data    NoContext     = NoContext
+newtype JustAPIKey    = JustAPIKey   { justKey      :: APIKey      }
+newtype JustAuthCred  = JustAuthCred { justAuthCred :: AuthCred    }
+newtype BlogContext c = BlogContext  { blogContext  :: (BlogId, c) }
 
-instance HasAPIKey    JustAPIKey where getAPIKey    (JustAPIKey k)      = k
-instance HasAPIKey    AuthAndKey where getAPIKey    (AuthAndKey (k, _)) = k
-instance HasAuthToken AuthAndKey where getAuthToken (AuthAndKey (_, t)) = t
+
+instance HasBlogId (BlogContext c) where
+  getBlogId = fst . blogContext
+
+instance HasAPIKey JustAPIKey where
+  getAPIKey = justKey
+
+instance HasAPIKey JustAuthCred where
+  getAPIKey = APIKey . OA.oauthConsumerKey . fst . justAuthCred
+
+instance HasAuthCred JustAuthCred where
+  getAuthCred = justAuthCred
+
+instance HasAPIKey c => HasAPIKey (BlogContext c) where
+  getAPIKey = getAPIKey . snd . blogContext
+
+instance HasAuthCred c => HasAuthCred (BlogContext c) where
+  getAuthCred = getAuthCred . snd . blogContext
+
 
 instance MonadIO m => HasHTTPGet NoContext m where
   httpGet _ = simpleHttp . exportURL
@@ -94,11 +120,17 @@ instance MonadIO m => HasHTTPGet NoContext m where
 instance MonadIO m => HasHTTPGet JustAPIKey m where
   httpGet _ = simpleHttp . exportURL
 
-instance MonadIO m => HasHTTPGet AuthAndKey m where
+instance MonadIO m => HasHTTPGet JustAuthCred m where
   httpGet _ = simpleHttp . exportURL
 
-instance MonadIO m => HasHTTPPost AuthAndKey m where
+instance MonadIO m => HasHTTPPost JustAuthCred m where
   httpPost _ = undefined
+
+instance (MonadIO m, HasHTTPGet c m) => HasHTTPGet (BlogContext c) m where
+  httpGet = httpGet . snd . blogContext
+
+instance (MonadIO m, HasHTTPPost c m) => HasHTTPPost (BlogContext c) m where
+  httpPost = httpPost . snd . blogContext
 
 
 

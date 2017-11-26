@@ -19,16 +19,20 @@ module Web.Sleep.Tumblr.Query (
   QueryParam(..),
   (&=),
   toURL,
+  toRequest,
   ) where
 
 
 
 -- imports
 
+import           Control.Exception
 import           Control.Monad
 import qualified Data.Map      as M
 import           Data.Typeable
 import           Network.URL
+import           Network.HTTP.Client
+import           Network.HTTP.Types.Method
 
 
 
@@ -58,6 +62,9 @@ class ToParameter p => QueryParam (q :: QName) p where
   pAdd :: Query q -> p -> Query q
   pAdd q p = q { params = M.insert (typeOf p) (mkParam p) $ params q }
 
+class GetProtocol (p :: QProtocol) where
+  getProtocol :: (QueryProtocol q ~ p) => Query q -> QProtocol
+
 
 
 -- exported functions
@@ -69,9 +76,22 @@ toURL :: Query q -> URL
 toURL (Query path params) = URL urlType path $ M.elems params
   where urlType = Absolute $ Host (HTTP True) "api.tumblr.com/v2" Nothing
 
+toRequest :: (QueryProtocol q ~ p, GetProtocol p) => Query q -> Request
+toRequest q = baseRequest { method = reqMethod }
+  where baseRequest = parseRequest_ $ show q
+        reqMethod   = case getProtocol q of
+                       QGet  -> methodGet
+                       QPost -> methodPost
+
 
 
 -- instances
 
 instance Show (Query q) where
   show = exportURL . toURL
+
+instance GetProtocol QGet where
+  getProtocol = const QGet
+
+instance GetProtocol QPost where
+  getProtocol = const QPost
