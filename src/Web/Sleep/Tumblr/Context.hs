@@ -17,6 +17,8 @@ module Web.Sleep.Tumblr.Context (
        anonymously,
        withKey,
        withAuth,
+       withBlog,
+       with,
        call,
        callT,
        callE,
@@ -36,6 +38,7 @@ import           Network.HTTP.Conduit
 import           Network.URL
 import qualified Web.Authenticate.OAuth as OA
 
+import           Web.Sleep.Common.Network
 import           Web.Sleep.Tumblr.Auth (AuthCred)
 import           Web.Sleep.Tumblr.Error
 import           Web.Sleep.Tumblr.Methods
@@ -56,16 +59,16 @@ class Monad m => HasHTTPPost c m where
 
 -- helper functions for simple usage
 
-anonymously :: MonadIO m => ReaderT NoContext m r -> m r
+anonymously :: MonadManager c m => ReaderT NoContext m r -> m r
 anonymously = with NoContext
 
-withKey :: MonadIO m => APIKey -> ReaderT JustAPIKey m r -> m r
+withKey :: MonadManager c m => APIKey -> ReaderT JustAPIKey m r -> m r
 withKey key = with $ JustAPIKey key
 
-withAuth :: AuthCred -> ReaderT JustAuthCred m r -> m r
+withAuth :: MonadManager c m => AuthCred -> ReaderT JustAuthCred m r -> m r
 withAuth auth = with $ JustAuthCred auth
 
-withBlog :: BlogId -> ReaderT (BlogContext c) m r -> ReaderT c m r
+withBlog :: MonadManager c m => BlogId -> ReaderT (BlogContext c) m r -> ReaderT c m r
 withBlog bid = withReaderT $ BlogContext . (bid,)
 
 with :: c -> ReaderT c m r -> m r
