@@ -45,7 +45,6 @@ module Web.Sleep.Tumblr.Data (
 
 import           Data.Aeson
 import           Data.Aeson.Types
-import qualified Data.Map              as M
 import           Data.Text             as T
 import           Data.Time.Clock
 import           Network.URL
@@ -247,25 +246,25 @@ parseURL s = maybe (fail msg) return $ importURL s
   where msg = s ++ " is not a valid url"
 
 ifPresent :: (a -> Parser b) -> Maybe a -> Parser (Maybe b)
-ifPresent p = sequence . fmap p
+ifPresent = traverse
 
 parsePostBase :: Object -> Parser PostBase
 parsePostBase o = do
-  id          <- o .: "id"
-  blogName    <- o .: "blog_name"
-  bookmarklet <- o .:? "bookmarklet" .!= False
-  date        <- fromTimestamp <$> o .: "timestamp"
-  fornat      <- o .: "format"
-  liked       <- o .:? "liked"
-  mobile      <- o .:? "mobile" .!= False
-  noteCount   <- o .: "note_count"
-  reblogKey   <- o .: "reblog_key"
-  sourceTitle <- o .:? "source_title"
-  sourceURL   <- ifPresent parseURL =<< o .:? "source_url"
-  state       <- o .: "state"
-  tags        <- o .: "tags"
-  pURL        <- parseURL =<< o .: "post_url"
-  return $ PostBase id blogName bookmarklet date fornat liked mobile noteCount reblogKey sourceTitle sourceURL state tags pURL
+  theId       <- o .: "id"
+  theBlogName <- o .: "blog_name"
+  bookmarklet  <- o .:? "bookmarklet" .!= False
+  date         <- fromTimestamp <$> o .: "timestamp"
+  fornat       <- o .: "format"
+  liked        <- o .:? "liked"
+  mobile       <- o .:? "mobile" .!= False
+  noteCount    <- o .: "note_count"
+  reblogKey    <- o .: "reblog_key"
+  sourceTitle  <- o .:? "source_title"
+  sourceURL    <- ifPresent parseURL =<< o .:? "source_url"
+  state        <- o .: "state"
+  tags         <- o .: "tags"
+  theURL         <- parseURL =<< o .: "post_url"
+  return $ PostBase theId theBlogName bookmarklet date fornat liked mobile noteCount reblogKey sourceTitle sourceURL state tags theURL
 
 
 
@@ -353,16 +352,16 @@ instance FromJSON PostBase where
 
 instance FromJSON Post where
   parseJSON = withObject "post" $ \o -> do
-    base     <- parsePostBase o
-    postType <- o .: "type"
-    case postType of AnswerType -> parseAnswer base o
-                     AudioType  -> parseAudio  base o
-                     ChatType   -> parseChat   base o
-                     LinkType   -> parseLink   base o
-                     PhotoType  -> parsePhoto  base o
-                     QuoteType  -> parseQuote  base o
-                     TextType   -> parseText   base o
-                     VideoType  -> parseVideo  base o
+    base        <- parsePostBase o
+    thePostType <- o .: "type"
+    case thePostType of AnswerType -> parseAnswer base o
+                        AudioType  -> parseAudio  base o
+                        ChatType   -> parseChat   base o
+                        LinkType   -> parseLink   base o
+                        PhotoType  -> parsePhoto  base o
+                        QuoteType  -> parseQuote  base o
+                        TextType   -> parseText   base o
+                        VideoType  -> parseVideo  base o
     where parseAnswer base o = do
             answer      <- o .: "answer"
             askingName  <- o .: "asking_name"

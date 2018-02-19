@@ -7,7 +7,6 @@ module Web.Sleep.Tumblr.Error (Error(..)) where
 -- imports
 
 import           Control.Exception.Safe
-import Data.Typeable
 import           Text.Printf
 
 

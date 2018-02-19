@@ -1,10 +1,9 @@
 {-# LANGUAGE DataKinds             #-}
 {-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE FlexibleInstances     #-}
-{-# LANGUAGE KindSignatures        #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE TypeFamilies          #-}
 {-# LANGUAGE TupleSections         #-}
+{-# LANGUAGE TypeFamilies          #-}
 {-# LANGUAGE UndecidableInstances  #-}
 
 
@@ -12,8 +11,6 @@
 -- module
 
 module Web.Sleep.Tumblr.Context (
-       HasHTTPGet(..),
-       HasHTTPPost(..),
        anonymously,
        withKey,
        withAuth,
@@ -34,12 +31,12 @@ import           Control.Monad.Reader
 import           Data.Aeson.Types
 import           Data.ByteString.Lazy
 import           Data.Proxy
-import           Network.HTTP.Conduit
-import           Network.URL
-import qualified Web.Authenticate.OAuth as OA
+import           Network.HTTP.Client
+import           Network.URI
+import qualified Web.Authenticate.OAuth    as OA
 
 import           Web.Sleep.Common.Network
-import           Web.Sleep.Tumblr.Auth (AuthCred)
+import           Web.Sleep.Tumblr.Auth     (AuthCred)
 import           Web.Sleep.Tumblr.Error
 import           Web.Sleep.Tumblr.Methods
 import           Web.Sleep.Tumblr.Query
@@ -49,27 +46,24 @@ import           Web.Sleep.Tumblr.Response
 
 -- network interfaces
 
-class Monad m => HasHTTPGet c m where
-  httpGet  :: c -> URL -> m ByteString
-
-class Monad m => HasHTTPPost c m where
-  httpPost :: c -> URL -> m ByteString
+class Monad m => HasNetwork c m where
+  send :: c -> Request -> m ByteString
 
 
 
 -- helper functions for simple usage
 
-anonymously :: MonadManager c m => ReaderT NoContext m r -> m r
-anonymously = with NoContext
+anonymously :: MonadIO m => ReaderT NoContext m r -> m r
+anonymously = undefined
 
-withKey :: MonadManager c m => APIKey -> ReaderT JustAPIKey m r -> m r
-withKey key = with $ JustAPIKey key
+withKey :: MonadIO m => APIKey -> ReaderT JustAPIKey m r -> m r
+withKey key = with $ undefined key
 
-withAuth :: MonadManager c m => AuthCred -> ReaderT JustAuthCred m r -> m r
-withAuth auth = with $ JustAuthCred auth
+withAuth :: MonadIO m => AuthCred -> ReaderT JustAuthCred m r -> m r
+withAuth auth = with $ undefined auth
 
-withBlog :: MonadManager c m => BlogId -> ReaderT (BlogContext c) m r -> ReaderT c m r
-withBlog bid = withReaderT $ BlogContext . (bid,)
+withBlog :: BlogId -> ReaderT (BlogContext c) m r -> ReaderT c m r
+withBlog bid = withReaderT $ undefined . (bid,)
 
 with :: c -> ReaderT c m r -> m r
 with = flip runReaderT
@@ -78,75 +72,53 @@ with = flip runReaderT
 
 -- actual network call and parsing
 
-call  :: (QueryResult q ~ r, HTTPMethod (QueryProtocol q) c m, MonadReader c m, FromJSON' r)
-          => Query q -> m (Either Error r)
-callT :: (QueryResult q ~ r, HTTPMethod (QueryProtocol q) c m, MonadReader c m, FromJSON' r, MonadThrow m)
-          => Query q -> m r
-callE :: (QueryResult q ~ r, HTTPMethod (QueryProtocol q) c m, MonadReader c m, FromJSON' r, MonadError Error m)
-          => Query q -> m r
-call  q = ask >>= getRawData q >>= decode
-callT q = ask >>= getRawData q >>= decodeT
-callE q = ask >>= getRawData q >>= decodeE
+call  :: (QueryInfo q, HasNetwork c m, MonadReader c m, FromJSON' (QueryResult q))
+          => Query q -> m (Either Error (QueryResult q))
+callT :: (QueryInfo q, HasNetwork c m, MonadReader c m, FromJSON' (QueryResult q), MonadThrow m)
+          => Query q -> m (QueryResult q)
+callE :: (QueryInfo q, HasNetwork c m, MonadReader c m, FromJSON' (QueryResult q), MonadError Error m)
+          => Query q -> m (QueryResult q)
+call  q = ask >>= flip send (toRequest q) >>= decode
+callT q = ask >>= flip send (toRequest q) >>= decodeT
+callE q = ask >>= flip send (toRequest q) >>= decodeE
 
 
 
 -- internal simple contexts
 
-data    NoContext     = NoContext
-newtype JustAPIKey    = JustAPIKey   { justKey      :: APIKey      }
-newtype JustAuthCred  = JustAuthCred { justAuthCred :: AuthCred    }
-newtype BlogContext c = BlogContext  { blogContext  :: (BlogId, c) }
+newtype TupleContext c1 c2 = TupleContext { getCtx :: (c1, c2) }
+type    NoContext     = TupleContext Manager ()
+type    JustAPIKey    = TupleContext Manager APIKey
+type    JustAuthCred  = TupleContext Manager AuthCred
+type    BlogContext   = TupleContext BlogId
 
 
-instance HasBlogId (BlogContext c) where
-  getBlogId = fst . blogContext
+instance HasAPIKey c2 => HasAPIKey (TupleContext c1 c2) where
+  getAPIKey = getAPIKey . snd . getCtx
 
-instance HasAPIKey JustAPIKey where
-  getAPIKey = justKey
+instance HasAuthCred c2 => HasAuthCred (TupleContext c1 c2) where
+  getAuthCred = getAuthCred . snd . getCtx
 
-instance HasAPIKey JustAuthCred where
-  getAPIKey = APIKey . OA.oauthConsumerKey . fst . justAuthCred
+instance HasHttpManager (TupleContext Manager c2) where
+  getHttpManager = getHttpManager . fst . getCtx
 
-instance HasAuthCred JustAuthCred where
-  getAuthCred = justAuthCred
-
-instance HasAPIKey c => HasAPIKey (BlogContext c) where
-  getAPIKey = getAPIKey . snd . blogContext
-
-instance HasAuthCred c => HasAuthCred (BlogContext c) where
-  getAuthCred = getAuthCred . snd . blogContext
+instance HasHttpManager c2 => HasHttpManager (BlogContext c2) where
+  getHttpManager = getHttpManager . snd . getCtx
 
 
-instance MonadIO m => HasHTTPGet NoContext m where
-  httpGet _ = simpleHttp . exportURL
+instance MonadIO m => HasNetwork NoContext m where
+  send _ = simpleHttp
 
-instance MonadIO m => HasHTTPGet JustAPIKey m where
-  httpGet _ = simpleHttp . exportURL
+instance MonadIO m => HasNetwork JustAPIKey m where
+  send _ = simpleHttp
 
-instance MonadIO m => HasHTTPGet JustAuthCred m where
-  httpGet _ = simpleHttp . exportURL
+instance MonadIO m => HasNetwork JustAuthCred m where
+  send _ = simpleHttp
 
-instance MonadIO m => HasHTTPPost JustAuthCred m where
-  httpPost _ = undefined
+instance (MonadIO m, HasNetwork c m) => HasNetwork (BlogContext c) m where
+  send _ = undefined -- httpGet . snd . getCtx
 
-instance (MonadIO m, HasHTTPGet c m) => HasHTTPGet (BlogContext c) m where
-  httpGet = httpGet . snd . blogContext
-
-instance (MonadIO m, HasHTTPPost c m) => HasHTTPPost (BlogContext c) m where
-  httpPost = httpPost . snd . blogContext
-
-
-
--- internal network method abstraction
-
-class HTTPMethod (p :: QProtocol) c m where
-  getRawData :: (QueryProtocol q ~ p, Monad m) => Query q -> c -> m ByteString
-
-instance (HasHTTPGet c m) => HTTPMethod QGet c m where
-  getRawData q c = httpGet c $ toURL q
-
-instance (HasHTTPPost c m) => HTTPMethod QPost c m where
-  getRawData q c = httpPost c $ toURL q
+simpleHttp = undefined
 
 
 

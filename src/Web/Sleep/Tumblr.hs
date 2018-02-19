@@ -2,7 +2,6 @@
 {-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedStrings     #-}
-{-# LANGUAGE TupleSections         #-}
 {-# LANGUAGE TypeFamilies          #-}
 
 
@@ -19,7 +18,7 @@ import           Control.Monad.Reader
 import           Data.Time.Clock
 import           Data.Time.Clock.POSIX
 import           Data.Typeable
-import qualified Network.HTTP.Client as N
+import qualified Network.HTTP.Client       as N
 
 import           Web.Sleep.Common.Misc
 import           Web.Sleep.Tumblr.Context

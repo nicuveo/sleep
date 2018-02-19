@@ -17,7 +17,6 @@ import           Control.Arrow
 import           Control.Exception.Safe
 import           Control.Monad.Except
 import           Data.Aeson
-import           Data.Aeson.Types
 import           Data.ByteString.Lazy
 
 import           Web.Sleep.Tumblr.Error
@@ -48,7 +47,7 @@ getResponseE = either throwError return . getResponse
 type RawData = ByteString
 
 data Meta = Meta { metaStatus :: Int
-                 , metaMsg    :: String
+                 , _metaMsg   :: String
                  } deriving (Show)
 
 data Envelope a = Envelope { envMeta :: Meta

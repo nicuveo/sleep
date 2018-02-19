@@ -44,8 +44,8 @@ module Web.Sleep.Tumblr.Methods (
 
 import           Control.Monad.Reader
 import           Data.ByteString.Char8
-import           Data.String
 import qualified Data.Map               as M
+import           Data.String
 import           Data.Time.Clock
 import           Data.Typeable
 
@@ -67,12 +67,12 @@ data PostRange = POffset Int
                | PAfter  UTCTime
                deriving (Show, Eq, Typeable)
 
-instance ToParameter APIKey    where mkParam (APIKey    p) = ("api_key", unpack p)
-instance ToParameter Limit     where mkParam (Limit     p) = ("limit",  show $ clamp 1 20 p)
-instance ToParameter Offset    where mkParam (Offset    o) = ("offset", show o)
-instance ToParameter PostRange where mkParam (POffset   o) = ("offset", show o)
-                                     mkParam (PBefore   d) = ("before", show $ toTimestamp d)
-                                     mkParam (PAfter    d) = ("after",  show $ toTimestamp d)
+instance ToParameter APIKey    where mkParam (APIKey    p) = ("api_key", p)
+instance ToParameter Limit     where mkParam (Limit     p) = ("limit",  pack $ show $ clamp 1 20 p)
+instance ToParameter Offset    where mkParam (Offset    o) = ("offset", pack $ show o)
+instance ToParameter PostRange where mkParam (POffset   o) = ("offset", pack $ show o)
+                                     mkParam (PBefore   d) = ("before", pack $ show $ toTimestamp d)
+                                     mkParam (PAfter    d) = ("after",  pack $ show $ toTimestamp d)
 
 class HasBlogId a where
   getBlogId :: a -> BlogId
@@ -91,11 +91,19 @@ instance {-# OVERLAPPABLE #-} MayHaveAuthCred a where
 
 
 
+-- obvious instances
+
+instance HasBlogId BlogId where { getBlogId = id }
+instance HasAPIKey APIKey where { getAPIKey = id }
+
+
+
 -- blog info
 
-instance QueryParam QInfo APIKey
-type instance QueryProtocol QInfo = QGet
-type instance QueryResult   QInfo = Blog
+instance QueryParam 'QInfo APIKey
+instance QueryInfo  QInfo where
+  type QueryResult  QInfo = Blog
+  getMethod = const QGet
 
 getBlogInfo :: (MonadReader c m, HasAPIKey c, MayHaveAuthCred c) => BlogId -> m (Query QInfo)
 getBlogInfo (BlogId bid) = addAPIKey $ mkQuery $ "blog/" ++ bid ++ "/info"
@@ -110,8 +118,9 @@ getInfo = asks getBlogId >>= getBlogInfo
 instance QueryParam QLikes APIKey
 instance QueryParam QLikes Limit
 instance QueryParam QLikes PostRange
-type instance QueryProtocol QLikes = QGet
-type instance QueryResult   QLikes = PostList
+instance QueryInfo  QLikes where
+  type QueryResult  QLikes = PostList
+  getMethod = const QGet
 
 getBlogLikes :: (MonadReader c m, HasAPIKey c, MayHaveAuthCred c) => BlogId -> m (Query QLikes)
 getBlogLikes (BlogId bid) = addAPIKey $ mkQuery $ "blog/" ++ bid ++ "/likes"
@@ -125,8 +134,9 @@ getLikes = asks getBlogId >>= getBlogLikes
 
 instance QueryParam QPosts APIKey;
 instance QueryParam QPosts Limit;
-type instance QueryProtocol QPosts = QGet
-type instance QueryResult   QPosts = PostList
+instance QueryInfo  QPosts where
+  type QueryResult  QPosts = PostList
+  getMethod = const QGet
 
 getBlogPosts :: (MonadReader c m, HasAPIKey c, MayHaveAuthCred c) => BlogId -> m (Query QPosts)
 getBlogPosts (BlogId bid) = addAPIKey $ mkQuery $ "blog/" ++ bid ++ "/posts"
@@ -146,8 +156,9 @@ getPostsByType t = asks getBlogId >>= flip getBlogPostsByType t
 
 instance QueryParam QPostsQueue APIKey;
 instance QueryParam QPostsQueue Limit;
-type instance QueryProtocol QPostsQueue = QGet
-type instance QueryResult   QPostsQueue = PostList
+instance QueryInfo  QPostsQueue where
+  type QueryResult  QPostsQueue = PostList
+  getMethod = const QGet
 
 getBlogPostsQueue :: (MonadReader c m, HasAuthCred c) => BlogId -> m (Query QPostsQueue)
 getBlogPostsQueue (BlogId bid) = mkQuery $ "blog/" ++ bid ++ "/posts/queue"
@@ -160,8 +171,9 @@ getPostsQueue = asks getBlogId >>= getBlogPostsQueue
 -- blog posts draft
 
 instance QueryParam QPostsDraft APIKey;
-type instance QueryProtocol QPostsDraft = QGet
-type instance QueryResult   QPostsDraft = PostList
+instance QueryInfo  QPostsDraft where
+  type QueryResult  QPostsDraft = PostList
+  getMethod = const QGet
 
 getBlogPostsDraft :: (MonadReader c m, HasAuthCred c) => BlogId -> m (Query QPostsDraft)
 getBlogPostsDraft (BlogId bid) = mkQuery $ "blog/" ++ bid ++ "/posts/draft"
@@ -174,7 +186,8 @@ getPostsDraft = asks getBlogId >>= getBlogPostsDraft
 -- local helpers
 
 mkQuery :: Monad m => String -> m (Query q)
-mkQuery = return . flip Query M.empty
+mkQuery = return . flip Query M.empty . parseUrl
+  where parseUrl = undefined
 
 addAPIKey :: (MonadReader c m, HasAPIKey c, QueryParam q APIKey) => m (Query q) -> m (Query q)
 addAPIKey q = asks getAPIKey >>= (q &=)

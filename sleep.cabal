@@ -13,7 +13,50 @@ cabal-version:       >=1.10
 
 library
   hs-source-dirs:      src
+  ghc-options:         -Wall
+                       -Wcompat
+                       -Wincomplete-record-updates
+                       -Wincomplete-uni-patterns
+                       -Wredundant-constraints
+                       -fno-warn-type-defaults
+                       -fno-warn-unused-do-bind
+                       -fwarn-tabs
+                       -O2
   default-language:    Haskell2010
+  default-extensions:  BangPatterns
+                       EmptyCase
+                       OverloadedStrings
+                       -- ApplicativeDo
+                       -- ConstraintKinds
+                       -- DataKinds
+                       -- DefaultSignatures
+                       -- DeriveFoldable
+                       -- DeriveFunctor
+                       -- DeriveGeneric
+                       -- DeriveLift
+                       -- DeriveTraversable
+                       -- DerivingStrategies
+                       -- ExistentialQuantification
+                       -- FlexibleContexts
+                       -- FlexibleInstances
+                       -- FunctionalDependencies
+                       -- GADTs
+                       -- GeneralizedNewtypeDeriving
+                       -- InstanceSigs
+                       -- KindSignatures
+                       -- LambdaCase
+                       -- MultiParamTypeClasses
+                       -- MultiWayIf
+                       -- NamedFieldPuns
+                       -- PatternSynonyms
+                       -- RankNTypes
+                       -- ScopedTypeVariables
+                       -- StandaloneDeriving
+                       -- TupleSections
+                       -- TypeApplications
+                       -- TypeFamilies
+                       -- TypeFamilyDependencies
+                       -- TypeOperators
   exposed-modules:     Web.Sleep,
                        Web.Sleep.Common.Misc,
                        Web.Sleep.Common.Network,
@@ -32,11 +75,11 @@ library
                        bytestring,
                        containers,
                        http-client,
-                       http-conduit,
                        http-types,
                        iso8601-time,
                        ixset,
                        mtl,
+                       network-uri,
                        safe-exceptions,
                        text,
                        time,
