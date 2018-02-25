@@ -30,15 +30,13 @@ import           Control.Monad.Except
 import           Control.Monad.Reader
 import           Data.Aeson.Types
 import           Data.ByteString.Lazy
-import           Data.Proxy
 import           Network.HTTP.Client
-import           Network.URI
-import qualified Web.Authenticate.OAuth    as OA
+-- import           Network.URI
+-- import qualified Web.Authenticate.OAuth    as OA
 
 import           Web.Sleep.Common.Network
 import           Web.Sleep.Tumblr.Auth     (AuthCred)
 import           Web.Sleep.Tumblr.Error
-import           Web.Sleep.Tumblr.Methods
 import           Web.Sleep.Tumblr.Query
 import           Web.Sleep.Tumblr.Response
 
@@ -63,7 +61,7 @@ withAuth :: MonadIO m => AuthCred -> ReaderT JustAuthCred m r -> m r
 withAuth auth = with $ undefined auth
 
 withBlog :: BlogId -> ReaderT (BlogContext c) m r -> ReaderT c m r
-withBlog bid = withReaderT $ undefined . (bid,)
+withBlog bid = withReaderT $ TupleContext . (bid,)
 
 with :: c -> ReaderT c m r -> m r
 with = flip runReaderT
@@ -97,7 +95,7 @@ instance HasAPIKey c2 => HasAPIKey (TupleContext c1 c2) where
   getAPIKey = getAPIKey . snd . getCtx
 
 instance HasAuthCred c2 => HasAuthCred (TupleContext c1 c2) where
-  getAuthCred = getAuthCred . snd . getCtx
+  addAuth = undefined -- getAuthCred . snd . getCtx
 
 instance HasHttpManager (TupleContext Manager c2) where
   getHttpManager = getHttpManager . fst . getCtx
@@ -118,6 +116,7 @@ instance MonadIO m => HasNetwork JustAuthCred m where
 instance (MonadIO m, HasNetwork c m) => HasNetwork (BlogContext c) m where
   send _ = undefined -- httpGet . snd . getCtx
 
+simpleHttp :: a
 simpleHttp = undefined
 
 

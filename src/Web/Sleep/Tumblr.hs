@@ -15,17 +15,10 @@ module Web.Sleep.Tumblr (test) where
 -- imports
 
 import           Control.Monad.Reader
-import           Data.Time.Clock
-import           Data.Time.Clock.POSIX
-import           Data.Typeable
-import qualified Network.HTTP.Client       as N
+import qualified Network.HTTP.Client      as N
 
-import           Web.Sleep.Common.Misc
 import           Web.Sleep.Tumblr.Context
-import           Web.Sleep.Tumblr.Data
-import           Web.Sleep.Tumblr.Methods
 import           Web.Sleep.Tumblr.Query
-import           Web.Sleep.Tumblr.Response
 
 
 -- blog following
@@ -53,5 +46,5 @@ test = do
     let apiKey = "FIXME"
     bi <- withKey apiKey $ call =<< getBlogInfo "beesandbombs.tumblr.com"
     case bi of
-     Left  error -> liftIO $ putStrLn $ "failed: " ++ show error
-     Right blog  -> liftIO $ print blog
+     Left  err  -> liftIO $ putStrLn $ "failed: " ++ show err
+     Right blog -> liftIO $ print blog
