@@ -75,7 +75,6 @@ import           Web.Sleep.Tumblr.Data
 
 -- query
 
-data QMethod = QGet | QPost
 data QName = QInfo
            | QLikes
            | QPosts

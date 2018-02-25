@@ -10,9 +10,10 @@ Network related helper types and functions.
 
 -- module
 
-module Web.Sleep.Common.Network
-  ( MonadManager
-  , ToRequest(..)
+module Web.Sleep.Common.Network (
+  QMethod(..),
+  MonadManager,
+  ToRequest(..),
   ) where
 
 
@@ -27,7 +28,13 @@ import qualified Network.HTTP.Client    as N
 
 -- exported types
 
+data QMethod = QGet | QPost
+
 type MonadManager r m = (MonadIO m, MonadReader r m, N.HasHttpManager r)
+
+
+
+-- exported classes
 
 class ToRequest a where
   toRequest :: a -> N.Request
