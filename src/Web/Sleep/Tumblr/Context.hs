@@ -1,8 +1,8 @@
 {-# LANGUAGE DataKinds             #-}
+{-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE TupleSections         #-}
 {-# LANGUAGE TypeFamilies          #-}
 {-# LANGUAGE UndecidableInstances  #-}
 
@@ -30,9 +30,8 @@ import           Control.Monad.Except
 import           Control.Monad.Reader
 import           Data.Aeson.Types
 import           Data.ByteString.Lazy
-import           Network.HTTP.Client
--- import           Network.URI
--- import qualified Web.Authenticate.OAuth    as OA
+import qualified Network.HTTP.Client       as N
+import qualified Web.Authenticate.OAuth    as OA
 
 import           Web.Sleep.Common.Network
 import           Web.Sleep.Tumblr.Auth     (AuthCred)
@@ -45,23 +44,29 @@ import           Web.Sleep.Tumblr.Response
 -- network interfaces
 
 class Monad m => HasNetwork c m where
-  send :: c -> Request -> m ByteString
+  send :: c -> N.Request -> m ByteString
 
 
 
 -- helper functions for simple usage
 
 anonymously :: MonadIO m => ReaderT NoContext m r -> m r
-anonymously = undefined
+anonymously e = do
+  m <- defaultManager
+  runReaderT e $ NoContext m
 
 withKey :: MonadIO m => APIKey -> ReaderT JustAPIKey m r -> m r
-withKey key = with $ undefined key
+withKey key e = do
+  m <- defaultManager
+  runReaderT e $ JustAPIKey m key
 
 withAuth :: MonadIO m => AuthCred -> ReaderT JustAuthCred m r -> m r
-withAuth auth = with $ undefined auth
+withAuth auth e = do
+  m <- defaultManager
+  runReaderT e $ JustAuthCred m auth
 
 withBlog :: BlogId -> ReaderT (BlogContext c) m r -> ReaderT c m r
-withBlog bid = withReaderT $ TupleContext . (bid,)
+withBlog bid = withReaderT $ BlogContext bid
 
 with :: c -> ReaderT c m r -> m r
 with = flip runReaderT
@@ -70,12 +75,12 @@ with = flip runReaderT
 
 -- actual network call and parsing
 
-call  :: (QueryInfo q, HasNetwork c m, MonadReader c m, FromJSON' (QueryResult q))
-          => Query q -> m (Either Error (QueryResult q))
-callT :: (QueryInfo q, HasNetwork c m, MonadReader c m, FromJSON' (QueryResult q), MonadThrow m)
-          => Query q -> m (QueryResult q)
-callE :: (QueryInfo q, HasNetwork c m, MonadReader c m, FromJSON' (QueryResult q), MonadError Error m)
-          => Query q -> m (QueryResult q)
+call  :: (ToRequest q, HasNetwork c m, MonadReader c m, FromJSON' (RequestResult q))
+          => q -> m (Either Error (RequestResult q))
+callT :: (ToRequest q, HasNetwork c m, MonadReader c m, FromJSON' (RequestResult q), MonadThrow m)
+          => q -> m (RequestResult q)
+callE :: (ToRequest q, HasNetwork c m, MonadReader c m, FromJSON' (RequestResult q), MonadError Error m)
+          => q -> m (RequestResult q)
 call  q = ask >>= flip send (toRequest q) >>= decode
 callT q = ask >>= flip send (toRequest q) >>= decodeT
 callE q = ask >>= flip send (toRequest q) >>= decodeE
@@ -84,40 +89,57 @@ callE q = ask >>= flip send (toRequest q) >>= decodeE
 
 -- internal simple contexts
 
-newtype TupleContext c1 c2 = TupleContext { getCtx :: (c1, c2) }
-type    NoContext     = TupleContext Manager ()
-type    JustAPIKey    = TupleContext Manager APIKey
-type    JustAuthCred  = TupleContext Manager AuthCred
-type    BlogContext   = TupleContext BlogId
+newtype NoContext     = NoContext    { ctxManager :: N.Manager }
+data    JustAPIKey    = JustAPIKey   { ctxManager :: N.Manager, ctxAPIKey :: APIKey }
+data    JustAuthCred  = JustAuthCred { ctxManager :: N.Manager, ctxAuthCred :: AuthCred }
+data    BlogContext c = BlogContext  { ctxBlog :: BlogId, ctx :: c }
 
 
-instance HasAPIKey c2 => HasAPIKey (TupleContext c1 c2) where
-  getAPIKey = getAPIKey . snd . getCtx
+instance HasAPIKey JustAPIKey where
+  getAPIKey = ctxAPIKey
 
-instance HasAuthCred c2 => HasAuthCred (TupleContext c1 c2) where
-  addAuth = undefined -- getAuthCred . snd . getCtx
+instance HasAPIKey JustAuthCred where
+  getAPIKey = APIKey . OA.oauthConsumerKey . fst . ctxAuthCred
 
-instance HasHttpManager (TupleContext Manager c2) where
-  getHttpManager = getHttpManager . fst . getCtx
+instance HasAPIKey c => HasAPIKey (BlogContext c) where
+  getAPIKey = getAPIKey . ctx
 
-instance HasHttpManager c2 => HasHttpManager (BlogContext c2) where
-  getHttpManager = getHttpManager . snd . getCtx
+
+instance HasAuthCred JustAuthCred where
+  addAuth = undefined -- uncurry OA.signOAuth . ctxAuthCred
+
+instance HasAuthCred c => HasAuthCred (BlogContext c) where
+  addAuth = addAuth . ctx
+
+
+instance HasBlogId (BlogContext c) where
+  getBlogId = ctxBlog
+
+
+instance N.HasHttpManager NoContext where
+  getHttpManager = ctxManager
+
+instance N.HasHttpManager JustAPIKey where
+  getHttpManager = ctxManager
+
+instance N.HasHttpManager JustAuthCred where
+  getHttpManager = ctxManager
+
+instance N.HasHttpManager c => N.HasHttpManager (BlogContext c) where
+  getHttpManager = N.getHttpManager . ctx
 
 
 instance MonadIO m => HasNetwork NoContext m where
-  send _ = simpleHttp
+  send c r = liftIO $ fmap N.responseBody $ N.httpLbs r $ N.getHttpManager c
 
 instance MonadIO m => HasNetwork JustAPIKey m where
-  send _ = simpleHttp
+  send c r = liftIO $ fmap N.responseBody $ N.httpLbs r $ N.getHttpManager c
 
 instance MonadIO m => HasNetwork JustAuthCred m where
-  send _ = simpleHttp
+  send c r = liftIO $ fmap N.responseBody $ N.httpLbs r $ N.getHttpManager c
 
-instance (MonadIO m, HasNetwork c m) => HasNetwork (BlogContext c) m where
-  send _ = undefined -- httpGet . snd . getCtx
-
-simpleHttp :: a
-simpleHttp = undefined
+instance HasNetwork c m => HasNetwork (BlogContext c) m where
+  send = send . ctx
 
 
 
@@ -137,3 +159,10 @@ instance {-# OVERLAPPING #-} FromJSON' () where
   decode  _ = return $ Right ()
   decodeT _ = return ()
   decodeE _ = return ()
+
+
+
+-- local helpers
+
+defaultManager :: MonadIO m => m N.Manager
+defaultManager = liftIO $ N.newManager N.defaultManagerSettings
