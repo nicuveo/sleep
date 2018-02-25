@@ -105,9 +105,11 @@ instance HasAPIKey c => HasAPIKey (BlogContext c) where
   getAPIKey = getAPIKey . ctx
 
 
+instance MayHaveAuthCred JustAuthCred
 instance HasAuthCred JustAuthCred where
   addAuth = undefined -- uncurry OA.signOAuth . ctxAuthCred
 
+instance HasAuthCred c => MayHaveAuthCred (BlogContext c)
 instance HasAuthCred c => HasAuthCred (BlogContext c) where
   addAuth = addAuth . ctx
 

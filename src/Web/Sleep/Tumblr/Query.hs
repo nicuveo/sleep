@@ -1,4 +1,5 @@
 {-# LANGUAGE DataKinds                  #-}
+{-# LANGUAGE DefaultSignatures          #-}
 {-# LANGUAGE ExistentialQuantification  #-}
 {-# LANGUAGE FlexibleContexts           #-}
 {-# LANGUAGE FlexibleInstances          #-}
@@ -7,13 +8,13 @@
 {-# LANGUAGE MultiParamTypeClasses      #-}
 {-# LANGUAGE OverloadedStrings          #-}
 {-# LANGUAGE TypeFamilies               #-}
-{-# LANGUAGE UndecidableInstances       #-}
 
 
 
 -- module
 
 module Web.Sleep.Tumblr.Query (
+
   -- query
   QMethod(..),
   QName(..),
@@ -23,9 +24,11 @@ module Web.Sleep.Tumblr.Query (
   ParametersMap,
   ToParameter(..),
   QueryParam(..),
+
   -- query functions
   (&=),
   toURI,
+
   -- parameters
   BlogId(..),
   APIKey(..),
@@ -34,23 +37,29 @@ module Web.Sleep.Tumblr.Query (
   HasAPIKey(..),
   HasAuthCred(..),
   MayHaveAuthCred(..),
+
   -- blog info
   getBlogInfo,
   getInfo,
+
   -- blog likes
   getBlogLikes,
   getLikes,
+
   -- blog posts
   getBlogPosts,
   getPosts,
   getBlogPostsByType,
   getPostsByType,
+
   -- blog posts queue
   getBlogPostsQueue,
   getPostsQueue,
+
   -- blog posts draft
   getBlogPostsDraft,
   getPostsDraft,
+
   ) where
 
 
@@ -159,14 +168,16 @@ class HasAPIKey a where
 class HasAPIKey a => HasAuthCred a where
   addAuth :: a -> N.Request -> N.Request
 
-class HasAPIKey a => MayHaveAuthCred a where
+class MayHaveAuthCred a where
   maybeAddAuth :: a -> N.Request -> N.Request
+  default maybeAddAuth :: HasAuthCred a => a -> N.Request -> N.Request
+  maybeAddAuth = addAuth
 
 
 
 -- parameter instances
 
-instance {-# OVERLAPPABLE #-} HasAPIKey a => MayHaveAuthCred a where
+instance {-# OVERLAPPABLE #-} MayHaveAuthCred a where
   maybeAddAuth = const id
 
 instance HasBlogId BlogId where { getBlogId = id }
@@ -181,10 +192,10 @@ instance QueryInfo  'QInfo where
   type QueryResult  'QInfo = Blog
   getMethod = const QGet
 
-getBlogInfo :: (MonadReader c m, MayHaveAuthCred c) => BlogId -> m (Query 'QInfo)
+getBlogInfo :: (MonadReader c m, HasAPIKey c, MayHaveAuthCred c) => BlogId -> m (Query 'QInfo)
 getBlogInfo (BlogId bid) = liftMaybeAddAuth $ addAPIKey $ mkQuery $ "blog/" ++ bid ++ "/info"
 
-getInfo :: (MonadReader c m, MayHaveAuthCred c, HasBlogId c) => m (Query 'QInfo)
+getInfo :: (MonadReader c m, HasAPIKey c, MayHaveAuthCred c, HasBlogId c) => m (Query 'QInfo)
 getInfo = asks getBlogId >>= getBlogInfo
 
 
@@ -198,10 +209,10 @@ instance QueryInfo  'QLikes where
   type QueryResult  'QLikes = PostList
   getMethod = const QGet
 
-getBlogLikes :: (MonadReader c m, MayHaveAuthCred c) => BlogId -> m (Query 'QLikes)
+getBlogLikes :: (MonadReader c m, HasAPIKey c, MayHaveAuthCred c) => BlogId -> m (Query 'QLikes)
 getBlogLikes (BlogId bid) = liftMaybeAddAuth $ addAPIKey $ mkQuery $ "blog/" ++ bid ++ "/likes"
 
-getLikes :: (MonadReader c m, MayHaveAuthCred c, HasBlogId c) => m (Query 'QLikes)
+getLikes :: (MonadReader c m, HasAPIKey c, MayHaveAuthCred c, HasBlogId c) => m (Query 'QLikes)
 getLikes = asks getBlogId >>= getBlogLikes
 
 
@@ -214,16 +225,16 @@ instance QueryInfo  'QPosts where
   type QueryResult  'QPosts = PostList
   getMethod = const QGet
 
-getBlogPosts :: (MonadReader c m, MayHaveAuthCred c) => BlogId -> m (Query 'QPosts)
+getBlogPosts :: (MonadReader c m, HasAPIKey c, MayHaveAuthCred c) => BlogId -> m (Query 'QPosts)
 getBlogPosts (BlogId bid) = liftMaybeAddAuth $ addAPIKey $ mkQuery $ "blog/" ++ bid ++ "/posts"
 
-getPosts :: (MonadReader c m, MayHaveAuthCred c, HasBlogId c) => m (Query 'QPosts)
+getPosts :: (MonadReader c m, HasAPIKey c, MayHaveAuthCred c, HasBlogId c) => m (Query 'QPosts)
 getPosts = asks getBlogId >>= getBlogPosts
 
-getBlogPostsByType :: (MonadReader c m, MayHaveAuthCred c) => BlogId -> PostType -> m (Query 'QPosts)
+getBlogPostsByType :: (MonadReader c m, HasAPIKey c, MayHaveAuthCred c) => BlogId -> PostType -> m (Query 'QPosts)
 getBlogPostsByType (BlogId bid) t = liftMaybeAddAuth $ addAPIKey $ mkQuery $ "blog/" ++ bid ++ "/posts/" ++ show t
 
-getPostsByType :: (MonadReader c m, MayHaveAuthCred c, HasBlogId c) => PostType -> m (Query 'QPosts)
+getPostsByType :: (MonadReader c m, HasAPIKey c, MayHaveAuthCred c, HasBlogId c) => PostType -> m (Query 'QPosts)
 getPostsByType t = asks getBlogId >>= flip getBlogPostsByType t
 
 
