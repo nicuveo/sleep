@@ -106,6 +106,7 @@ class QueryInfo (q :: QName) where
 -- query instances
 
 instance QueryInfo q => ToRequest (Query q) where
+  type RequestResult (Query q) = QueryResult q
   toRequest q = post q $ N.setQueryString queryStr $ reqBase
                 { N.method = reqMethod
                 , N.host   = "api.tumblr.com/v2"
