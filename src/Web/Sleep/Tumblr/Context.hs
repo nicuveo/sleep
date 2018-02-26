@@ -12,7 +12,7 @@
 
 module Web.Sleep.Tumblr.Context (
        anonymously,
-       withKey,
+       withAPIKey,
        withAuth,
        withBlog,
        with,
@@ -55,8 +55,8 @@ anonymously e = do
   m <- defaultManager
   runReaderT e $ NoContext m
 
-withKey :: MonadIO m => APIKey -> ReaderT JustAPIKey m r -> m r
-withKey key e = do
+withAPIKey :: MonadIO m => APIKey -> ReaderT JustAPIKey m r -> m r
+withAPIKey key e = do
   m <- defaultManager
   runReaderT e $ JustAPIKey m key
 

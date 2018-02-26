@@ -15,7 +15,6 @@ module Web.Sleep.Tumblr (test) where
 -- imports
 
 import           Control.Monad.Reader
-import qualified Network.HTTP.Client      as N
 
 import           Web.Sleep.Tumblr.Context
 import           Web.Sleep.Tumblr.Query
@@ -40,11 +39,8 @@ import           Web.Sleep.Tumblr.Query
 -- debug
 
 test :: IO ()
-test = do
-  manager <- N.newManager N.defaultManagerSettings
-  with manager $ do
-    let apiKey = "FIXME"
-    bi <- withKey apiKey $ call =<< getBlogInfo "beesandbombs.tumblr.com"
-    case bi of
-     Left  err  -> liftIO $ putStrLn $ "failed: " ++ show err
-     Right blog -> liftIO $ print blog
+test = withAPIKey "FIXME" $ do
+  bi <- call =<< getBlogInfo "beesandbombs.tumblr.com"
+  case bi of
+    Left  err  -> liftIO $ putStrLn $ "failed: " ++ show err
+    Right blog -> liftIO $ print blog

@@ -78,7 +78,7 @@ import           Data.Time.Clock
 import           Data.Typeable
 import qualified Network.HTTP.Client       as N
 import qualified Network.HTTP.Types.Method as N
-import qualified Network.URI               as N
+import qualified Network.URI               as N (URI)
 
 import           Web.Sleep.Common.Misc
 import           Web.Sleep.Common.Network
@@ -117,7 +117,7 @@ class QueryInfo (q :: QName) where
 
 -- query instances
 
-instance (QueryInfo q, Monad m) => ToRequest (Query q m) m where
+instance Monad m => ToRequest (Query q m) m where
   type RequestResult (Query q m) = QueryResult q
   toRequest q = sign q $ toUnsignedRequest q
 
@@ -131,21 +131,14 @@ instance QueryInfo q => Show (Query q m) where
 (&=) :: (Functor f, QueryParam q p) => f (Query q m) -> p -> f (Query q m)
 q &= p = pAdd p <$> q
 
-toUnsignedRequest :: QueryInfo q => Query q m -> N.Request
-toUnsignedRequest q = N.setQueryString queryStr $ reqBase
-                      { N.method = reqMethod
-                      , N.host   = "api.tumblr.com/v2"
-                      }
-  where queryStr  = fmap (fmap Just) $ M.elems $ params q
-        reqBase   = request q
-        reqMethod = case getMethod q of
-                      QGet  -> N.methodGet
-                      QPost -> N.methodPost
+toUnsignedRequest :: Query q m -> N.Request
+toUnsignedRequest q = N.setQueryString queryStr $ request q
+  where queryStr = fmap (fmap Just) $ M.elems $ params q
 
-toUnsignedURI :: QueryInfo q => Query q m -> N.URI
+toUnsignedURI :: Query q m -> N.URI
 toUnsignedURI = N.getUri . toUnsignedRequest
 
-toURI :: (Monad m, QueryInfo q) => Query q m -> m N.URI
+toURI :: Monad m => Query q m -> m N.URI
 toURI = fmap N.getUri . toRequest
 
 
@@ -284,9 +277,16 @@ getPostsDraft = asks getBlogId >>= getBlogPostsDraft
 
 -- local helpers
 
-mkQuery :: Monad m => String -> m (Query q m)
-mkQuery = return . fromUrl . N.parseRequest_
-  where fromUrl u = Query u M.empty return
+mkQuery :: (Monad m, QueryInfo q) => String -> m (Query q m)
+mkQuery s = return resultQuery
+  where resultQuery = Query req M.empty return
+        req = N.defaultRequest { N.path   = fromString $ "/v2/" ++ s
+                               , N.method = reqMethod
+                               , N.host   = "api.tumblr.com"
+                               }
+        reqMethod = case getMethod resultQuery of
+                      QGet  -> N.methodGet
+                      QPost -> N.methodPost
 
 addAPIKey :: (MonadReader c m, HasAPIKey c, QueryParam q APIKey) => m (Query q m) -> m (Query q m)
 addAPIKey q = asks getAPIKey >>= (q &=)
