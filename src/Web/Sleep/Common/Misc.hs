@@ -9,6 +9,7 @@ A collection of miscellaneous helpers.
 -- module
 
 module Web.Sleep.Common.Misc (
+  (...),
   clamp,
   fromTimestamp,
   toTimestamp,
@@ -24,6 +25,9 @@ import           Data.Time.Clock.POSIX
 
 
 -- exported functions
+
+(...) :: (c -> d) -> (a -> b -> c) -> a -> b -> d
+(f ... g) x y = f $ g x y
 
 clamp :: Ord a => a -> a -> a -> a
 clamp a b
