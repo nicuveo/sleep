@@ -1,5 +1,6 @@
-{-# LANGUAGE ConstraintKinds #-}
-{-# LANGUAGE TypeFamilies    #-}
+{-# LANGUAGE ConstraintKinds       #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE TypeFamilies          #-}
 
 {-
 
@@ -37,6 +38,6 @@ type MonadManager r m = (MonadIO m, MonadReader r m, N.HasHttpManager r)
 
 -- exported classes
 
-class ToRequest a where
+class Monad m => ToRequest a m where
   type RequestResult a :: *
-  toRequest :: a -> N.Request
+  toRequest :: a -> m N.Request

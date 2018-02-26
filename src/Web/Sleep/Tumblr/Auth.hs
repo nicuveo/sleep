@@ -1,3 +1,4 @@
+{-# LANGUAGE DefaultSignatures     #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 
 
@@ -12,23 +13,33 @@ module Web.Sleep.Tumblr.Auth (
   OAuth,
   Credential,
   AuthCred,
+  -- exported classes
+  MonadSign(..),
   -- exported functions
   tumblrOAuth,
-  getAuthCred,
-  getDebugAuthCred,
-  getAuthCredM,
+  getSimpleAuthCred,
+  getSimpleDebugAuthCred,
+  getSimpleAuthCredM,
   ) where
 
 
 
 -- imports
 
-import           Control.Monad.IO.Class
+import           Control.Monad.Cont
+import           Control.Monad.Except
+import           Control.Monad.Identity
+import           Control.Monad.List
 import           Control.Monad.Reader
+import           Control.Monad.RWS
+import           Control.Monad.State
+import           Control.Monad.Trans.Maybe
+import           Control.Monad.Writer
 import           Data.ByteString
-import qualified Network.HTTP.Client      as N
-import qualified Web.Authenticate.OAuth   as OA
+import qualified Network.HTTP.Client       as N
+import qualified Web.Authenticate.OAuth    as OA
 
+import           Web.Sleep.Common.Misc
 import           Web.Sleep.Common.Network
 
 
@@ -41,6 +52,28 @@ type AppSecret  = ByteString
 type OAuth      = OA.OAuth
 type Credential = OA.Credential
 type AuthCred   = (OAuth, Credential)
+
+
+
+-- signing class
+
+class Monad m => MonadSign m where
+  signOAuth :: AuthCred -> N.Request -> m N.Request
+  default signOAuth :: MonadIO m => AuthCred -> N.Request -> m N.Request
+  signOAuth = liftIO ... uncurry OA.signOAuth
+
+instance MonadSign IO
+instance MonadSign Identity where
+  signOAuth _ = return
+
+instance (Monoid w, MonadSign m) => MonadSign (RWST r w s m) where signOAuth = lift ... signOAuth
+instance (Monoid w, MonadSign m) => MonadSign (WriterT w m)  where signOAuth = lift ... signOAuth
+instance MonadSign m             => MonadSign (ContT r m)    where signOAuth = lift ... signOAuth
+instance MonadSign m             => MonadSign (ExceptT e m)  where signOAuth = lift ... signOAuth
+instance MonadSign m             => MonadSign (ListT m)      where signOAuth = lift ... signOAuth
+instance MonadSign m             => MonadSign (MaybeT m)     where signOAuth = lift ... signOAuth
+instance MonadSign m             => MonadSign (ReaderT r m)  where signOAuth = lift ... signOAuth
+instance MonadSign m             => MonadSign (StateT s m)   where signOAuth = lift ... signOAuth
 
 
 
@@ -61,19 +94,19 @@ tumblrOAuth name key secret =
 
 type URLCallback m = String -> m ()
 
-getAuthCred :: MonadIO m => URLCallback m -> N.Manager -> OAuth -> m AuthCred
-getAuthCred callback manager oauth = do
+getSimpleAuthCred :: MonadIO m => URLCallback m -> N.Manager -> OAuth -> m AuthCred
+getSimpleAuthCred callback manager oauth = do
   tempcred <- OA.getTemporaryCredential oauth manager
   callback $ OA.authorizeUrl oauth tempcred
   cred <- OA.getAccessToken oauth tempcred manager
   return (oauth, cred)
 
-getAuthCredM :: MonadManager r m => URLCallback m -> OAuth -> m AuthCred
-getAuthCredM callback oauth = do
+getSimpleAuthCredM :: MonadManager r m => URLCallback m -> OAuth -> m AuthCred
+getSimpleAuthCredM callback oauth = do
   manager <- asks N.getHttpManager
-  getAuthCred callback manager oauth
+  getSimpleAuthCred callback manager oauth
 
-getDebugAuthCred :: MonadIO m => URLCallback m -> OAuth -> m AuthCred
-getDebugAuthCred callback oauth = do
+getSimpleDebugAuthCred :: MonadIO m => URLCallback m -> OAuth -> m AuthCred
+getSimpleDebugAuthCred callback oauth = do
   manager <- liftIO $ N.newManager N.defaultManagerSettings
-  getAuthCred callback manager oauth
+  getSimpleAuthCred callback manager oauth

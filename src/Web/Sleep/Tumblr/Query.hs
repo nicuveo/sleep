@@ -1,3 +1,4 @@
+{-# LANGUAGE ConstraintKinds            #-}
 {-# LANGUAGE DataKinds                  #-}
 {-# LANGUAGE DefaultSignatures          #-}
 {-# LANGUAGE ExistentialQuantification  #-}
@@ -27,6 +28,8 @@ module Web.Sleep.Tumblr.Query (
 
   -- query functions
   (&=),
+  toUnsignedRequest,
+  toUnsignedURI,
   toURI,
 
   -- parameters
@@ -92,10 +95,10 @@ data QName = QInfo
            | QPostsQueue
            | QPostsDraft
 
-data Query (q :: QName) = Query { request :: N.Request
-                                , params  :: ParametersMap
-                                , post    :: N.Request -> N.Request
-                                }
+data Query (q :: QName) m = Query { request :: N.Request
+                                  , params  :: ParametersMap
+                                  , sign    :: N.Request -> m N.Request
+                                  }
 
 type Parameter = (ByteString, ByteString)
 type ParametersMap = M.Map TypeRep Parameter
@@ -104,40 +107,46 @@ class Typeable p => ToParameter p where
   mkParam :: p -> Parameter
 
 class ToParameter p => QueryParam (q :: QName) p where
-  pAdd :: p -> Query q -> Query q
+  pAdd :: p -> Query q m -> Query q m
   pAdd p q = q { params = M.insert (typeOf p) (mkParam p) $ params q }
 
 class QueryInfo (q :: QName) where
   type QueryResult q :: *
-  getMethod :: Query q -> QMethod
+  getMethod :: Query q m -> QMethod
 
 
 -- query instances
 
-instance QueryInfo q => ToRequest (Query q) where
-  type RequestResult (Query q) = QueryResult q
-  toRequest q = post q $ N.setQueryString queryStr $ reqBase
-                { N.method = reqMethod
-                , N.host   = "api.tumblr.com/v2"
-                }
-    where queryStr  = fmap (fmap Just) $ M.elems $ params q
-          reqBase   = request q
-          reqMethod = case getMethod q of
-                        QGet  -> N.methodGet
-                        QPost -> N.methodPost
+instance (QueryInfo q, Monad m) => ToRequest (Query q m) m where
+  type RequestResult (Query q m) = QueryResult q
+  toRequest q = sign q $ toUnsignedRequest q
 
-instance QueryInfo q => Show (Query q) where
-  show = show . toURI
+instance QueryInfo q => Show (Query q m) where
+  show = show . toUnsignedURI
 
 
 
 -- query functions
 
-(&=) :: (Functor f, QueryParam q p) => f (Query q) -> p -> f (Query q)
+(&=) :: (Functor f, QueryParam q p) => f (Query q m) -> p -> f (Query q m)
 q &= p = pAdd p <$> q
 
-toURI :: QueryInfo q => Query q -> N.URI
-toURI = N.getUri . toRequest
+toUnsignedRequest :: QueryInfo q => Query q m -> N.Request
+toUnsignedRequest q = N.setQueryString queryStr $ reqBase
+                      { N.method = reqMethod
+                      , N.host   = "api.tumblr.com/v2"
+                      }
+  where queryStr  = fmap (fmap Just) $ M.elems $ params q
+        reqBase   = request q
+        reqMethod = case getMethod q of
+                      QGet  -> N.methodGet
+                      QPost -> N.methodPost
+
+toUnsignedURI :: QueryInfo q => Query q m -> N.URI
+toUnsignedURI = N.getUri . toUnsignedRequest
+
+toURI :: (Monad m, QueryInfo q) => Query q m -> m N.URI
+toURI = fmap N.getUri . toRequest
 
 
 
@@ -165,20 +174,23 @@ class HasBlogId a where
 class HasAPIKey a where
   getAPIKey :: a -> APIKey
 
-class HasAPIKey a => HasAuthCred a where
-  addAuth :: a -> N.Request -> N.Request
+class HasAuthCred a where
+  getAuthCred :: a -> AuthCred
 
 class MayHaveAuthCred a where
-  maybeAddAuth :: a -> N.Request -> N.Request
-  default maybeAddAuth :: HasAuthCred a => a -> N.Request -> N.Request
-  maybeAddAuth = addAuth
+  maybeGetAuthCred :: a -> Maybe AuthCred
+  default maybeGetAuthCred :: HasAuthCred a => a -> Maybe AuthCred
+  maybeGetAuthCred = Just . getAuthCred
+
+type MonadAuth c m = (MonadReader c m, MonadSign m, HasAPIKey c, HasAuthCred c)
+type MonadMaybeAuth c m = (MonadReader c m, MonadSign m, HasAPIKey c, MayHaveAuthCred c)
 
 
 
 -- parameter instances
 
 instance {-# OVERLAPPABLE #-} MayHaveAuthCred a where
-  maybeAddAuth = const id
+  maybeGetAuthCred = const Nothing
 
 instance HasBlogId BlogId where { getBlogId = id }
 instance HasAPIKey APIKey where { getAPIKey = id }
@@ -192,10 +204,10 @@ instance QueryInfo  'QInfo where
   type QueryResult  'QInfo = Blog
   getMethod = const QGet
 
-getBlogInfo :: (MonadReader c m, HasAPIKey c, MayHaveAuthCred c) => BlogId -> m (Query 'QInfo)
+getBlogInfo :: MonadMaybeAuth c m => BlogId -> m (Query 'QInfo m)
 getBlogInfo (BlogId bid) = liftMaybeAddAuth $ addAPIKey $ mkQuery $ "blog/" ++ bid ++ "/info"
 
-getInfo :: (MonadReader c m, HasAPIKey c, MayHaveAuthCred c, HasBlogId c) => m (Query 'QInfo)
+getInfo :: (MonadMaybeAuth c m, HasBlogId c) => m (Query 'QInfo m)
 getInfo = asks getBlogId >>= getBlogInfo
 
 
@@ -209,10 +221,10 @@ instance QueryInfo  'QLikes where
   type QueryResult  'QLikes = PostList
   getMethod = const QGet
 
-getBlogLikes :: (MonadReader c m, HasAPIKey c, MayHaveAuthCred c) => BlogId -> m (Query 'QLikes)
+getBlogLikes :: MonadMaybeAuth c m => BlogId -> m (Query 'QLikes m)
 getBlogLikes (BlogId bid) = liftMaybeAddAuth $ addAPIKey $ mkQuery $ "blog/" ++ bid ++ "/likes"
 
-getLikes :: (MonadReader c m, HasAPIKey c, MayHaveAuthCred c, HasBlogId c) => m (Query 'QLikes)
+getLikes :: (MonadMaybeAuth c m, HasBlogId c) => m (Query 'QLikes m)
 getLikes = asks getBlogId >>= getBlogLikes
 
 
@@ -225,16 +237,16 @@ instance QueryInfo  'QPosts where
   type QueryResult  'QPosts = PostList
   getMethod = const QGet
 
-getBlogPosts :: (MonadReader c m, HasAPIKey c, MayHaveAuthCred c) => BlogId -> m (Query 'QPosts)
+getBlogPosts :: MonadMaybeAuth c m => BlogId -> m (Query 'QPosts m)
 getBlogPosts (BlogId bid) = liftMaybeAddAuth $ addAPIKey $ mkQuery $ "blog/" ++ bid ++ "/posts"
 
-getPosts :: (MonadReader c m, HasAPIKey c, MayHaveAuthCred c, HasBlogId c) => m (Query 'QPosts)
+getPosts :: (MonadMaybeAuth c m, HasBlogId c) => m (Query 'QPosts m)
 getPosts = asks getBlogId >>= getBlogPosts
 
-getBlogPostsByType :: (MonadReader c m, HasAPIKey c, MayHaveAuthCred c) => BlogId -> PostType -> m (Query 'QPosts)
+getBlogPostsByType :: MonadMaybeAuth c m => BlogId -> PostType -> m (Query 'QPosts m)
 getBlogPostsByType (BlogId bid) t = liftMaybeAddAuth $ addAPIKey $ mkQuery $ "blog/" ++ bid ++ "/posts/" ++ show t
 
-getPostsByType :: (MonadReader c m, HasAPIKey c, MayHaveAuthCred c, HasBlogId c) => PostType -> m (Query 'QPosts)
+getPostsByType :: (MonadMaybeAuth c m, HasBlogId c) => PostType -> m (Query 'QPosts m)
 getPostsByType t = asks getBlogId >>= flip getBlogPostsByType t
 
 
@@ -247,10 +259,10 @@ instance QueryInfo  'QPostsQueue where
   type QueryResult  'QPostsQueue = PostList
   getMethod = const QGet
 
-getBlogPostsQueue :: (MonadReader c m, HasAuthCred c) => BlogId -> m (Query 'QPostsQueue)
+getBlogPostsQueue :: MonadAuth c m => BlogId -> m (Query 'QPostsQueue m)
 getBlogPostsQueue (BlogId bid) = liftAddAuth $ mkQuery $ "blog/" ++ bid ++ "/posts/queue"
 
-getPostsQueue :: (MonadReader c m, HasAuthCred c, HasBlogId c) => m (Query 'QPostsQueue)
+getPostsQueue :: (MonadAuth c m, HasBlogId c) => m (Query 'QPostsQueue m)
 getPostsQueue = asks getBlogId >>= getBlogPostsQueue
 
 
@@ -262,31 +274,33 @@ instance QueryInfo  'QPostsDraft where
   type QueryResult  'QPostsDraft = PostList
   getMethod = const QGet
 
-getBlogPostsDraft :: (MonadReader c m, HasAuthCred c) => BlogId -> m (Query 'QPostsDraft)
+getBlogPostsDraft :: MonadAuth c m => BlogId -> m (Query 'QPostsDraft m)
 getBlogPostsDraft (BlogId bid) = liftAddAuth $ addAPIKey $ mkQuery $ "blog/" ++ bid ++ "/posts/draft"
 
-getPostsDraft :: (MonadReader c m, HasAuthCred c, HasBlogId c) => m (Query 'QPostsDraft)
+getPostsDraft :: (MonadAuth c m, HasBlogId c) => m (Query 'QPostsDraft m)
 getPostsDraft = asks getBlogId >>= getBlogPostsDraft
 
 
 
 -- local helpers
 
-mkQuery :: Monad m => String -> m (Query q)
+mkQuery :: Monad m => String -> m (Query q m)
 mkQuery = return . fromUrl . N.parseRequest_
-  where fromUrl u = Query u M.empty id
+  where fromUrl u = Query u M.empty return
 
-addAPIKey :: (MonadReader c m, HasAPIKey c, QueryParam q APIKey) => m (Query q) -> m (Query q)
+addAPIKey :: (MonadReader c m, HasAPIKey c, QueryParam q APIKey) => m (Query q m) -> m (Query q m)
 addAPIKey q = asks getAPIKey >>= (q &=)
 
-liftMaybeAddAuth :: (MonadReader c m, MayHaveAuthCred c) => m (Query q) -> m (Query q)
+liftMaybeAddAuth :: MonadMaybeAuth c m => m (Query q m) -> m (Query q m)
 liftMaybeAddAuth query = do
   q <- query
-  c <- ask
-  return $ q { post = maybeAddAuth c . post q }
+  ma <- asks maybeGetAuthCred
+  case ma of
+    Nothing -> return q
+    Just a  -> return $ q { sign = signOAuth a }
 
-liftAddAuth :: (MonadReader c m, HasAuthCred c) => m (Query q) -> m (Query q)
+liftAddAuth :: MonadAuth c m => m (Query q m) -> m (Query q m)
 liftAddAuth query = do
   q <- query
-  c <- ask
-  return $ q { post = addAuth c . post q }
+  a <- asks getAuthCred
+  return $ q { sign = signOAuth a }

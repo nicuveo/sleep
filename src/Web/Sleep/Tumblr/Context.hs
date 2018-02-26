@@ -75,15 +75,22 @@ with = flip runReaderT
 
 -- actual network call and parsing
 
-call  :: (ToRequest q, HasNetwork c m, MonadReader c m, FromJSON' (RequestResult q))
+call  :: (ToRequest q m, HasNetwork c m, MonadReader c m, FromJSON' (RequestResult q))
           => q -> m (Either Error (RequestResult q))
-callT :: (ToRequest q, HasNetwork c m, MonadReader c m, FromJSON' (RequestResult q), MonadThrow m)
+callT :: (ToRequest q m, HasNetwork c m, MonadReader c m, FromJSON' (RequestResult q), MonadThrow m)
           => q -> m (RequestResult q)
-callE :: (ToRequest q, HasNetwork c m, MonadReader c m, FromJSON' (RequestResult q), MonadError Error m)
+callE :: (ToRequest q m, HasNetwork c m, MonadReader c m, FromJSON' (RequestResult q), MonadError Error m)
           => q -> m (RequestResult q)
-call  q = ask >>= flip send (toRequest q) >>= decode
-callT q = ask >>= flip send (toRequest q) >>= decodeT
-callE q = ask >>= flip send (toRequest q) >>= decodeE
+call  = doCall >=> decode
+callT = doCall >=> decodeT
+callE = doCall >=> decodeE
+
+doCall :: (ToRequest q m, HasNetwork c m, MonadReader c m)
+          => q -> m ByteString
+doCall q = do
+  r <- toRequest q
+  c <- ask
+  send c r
 
 
 
@@ -107,11 +114,11 @@ instance HasAPIKey c => HasAPIKey (BlogContext c) where
 
 instance MayHaveAuthCred JustAuthCred
 instance HasAuthCred JustAuthCred where
-  addAuth = undefined -- uncurry OA.signOAuth . ctxAuthCred
+  getAuthCred = ctxAuthCred
 
 instance HasAuthCred c => MayHaveAuthCred (BlogContext c)
 instance HasAuthCred c => HasAuthCred (BlogContext c) where
-  addAuth = addAuth . ctx
+  getAuthCred = getAuthCred . ctx
 
 
 instance HasBlogId (BlogContext c) where
