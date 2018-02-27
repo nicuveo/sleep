@@ -4,7 +4,6 @@
 {-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE TypeFamilies          #-}
-{-# LANGUAGE UndecidableInstances  #-}
 
 
 
@@ -75,19 +74,19 @@ with = flip runReaderT
 
 -- actual network call and parsing
 
-call  :: (ToRequest q m, HasNetwork c m, MonadReader c m, FromJSON' (RequestResult q))
+call  :: (ToRequest q m, HasNetwork c m, MonadReader c m, FromJSON (RequestResult q))
           => q -> m (Either Error (RequestResult q))
-callT :: (ToRequest q m, HasNetwork c m, MonadReader c m, FromJSON' (RequestResult q), MonadThrow m)
+callT :: (ToRequest q m, HasNetwork c m, MonadReader c m, FromJSON (RequestResult q), MonadThrow m)
           => q -> m (RequestResult q)
-callE :: (ToRequest q m, HasNetwork c m, MonadReader c m, FromJSON' (RequestResult q), MonadError Error m)
+callE :: (ToRequest q m, HasNetwork c m, MonadReader c m, FromJSON (RequestResult q), MonadError Error m)
           => q -> m (RequestResult q)
-call  = doCall >=> decode
-callT = doCall >=> decodeT
-callE = doCall >=> decodeE
+call  = fmap getResponse . _doCall
+callT = _doCall >=> getResponseT
+callE = _doCall >=> getResponseE
 
-doCall :: (ToRequest q m, HasNetwork c m, MonadReader c m)
+_doCall :: (ToRequest q m, HasNetwork c m, MonadReader c m)
           => q -> m ByteString
-doCall q = do
+_doCall q = do
   r <- toRequest q
   c <- ask
   send c r
@@ -149,25 +148,6 @@ instance MonadIO m => HasNetwork JustAuthCred m where
 
 instance HasNetwork c m => HasNetwork (BlogContext c) m where
   send = send . ctx
-
-
-
--- overlapping getResponse for ()
-
-class FromJSON a => FromJSON' a where
-  decode  :: Monad m            => ByteString -> m (Either Error a)
-  decodeT :: MonadThrow m       => ByteString -> m a
-  decodeE :: MonadError Error m => ByteString -> m a
-
-instance {-# OVERLAPPABLE #-} FromJSON a => FromJSON' a where
-  decode  = return . getResponse
-  decodeT = getResponseT
-  decodeE = getResponseE
-
-instance {-# OVERLAPPING #-} FromJSON' () where
-  decode  _ = return $ Right ()
-  decodeT _ = return ()
-  decodeE _ = return ()
 
 
 
