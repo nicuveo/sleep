@@ -1,7 +1,6 @@
 {-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedStrings     #-}
-{-# LANGUAGE ViewPatterns          #-}
 
 
 
@@ -18,6 +17,7 @@ import           Control.Exception.Safe
 import           Control.Monad.Except
 import           Data.Aeson
 import           Data.ByteString.Lazy
+import qualified Data.Vector            as V
 
 import           Web.Sleep.Tumblr.Error
 
@@ -26,13 +26,7 @@ import           Web.Sleep.Tumblr.Error
 -- exported functions
 
 getResponse :: FromJSON a => RawData -> Either Error a
-getResponse rd = do
-  env <- left jsonError $ eitherDecode' rd
-  if isOk env
-    then Right $ envResp env
-    else Left $ metaToError $ envMeta env
-  where isOk :: Envelope a -> Bool
-        isOk (metaStatus . envMeta -> status) = status == 200
+getResponse = join . fmap getRes . left jsonError . eitherDecode'
 
 getResponseT :: (MonadThrow m, FromJSON a) => RawData -> m a
 getResponseT = either throw return . getResponse
@@ -46,20 +40,13 @@ getResponseE = either throwError return . getResponse
 
 type RawData = ByteString
 
-data Meta = Meta { metaStatus :: Int
-                 , _metaMsg   :: String
-                 } deriving (Show)
+data Meta = Meta Int String deriving Show
 
-data Envelope a = Envelope { envMeta :: Meta
-                           , envResp :: a
-                           } deriving (Show)
+newtype Envelope a = Envelope { getRes :: Either Error a } deriving Show
 
 
 
 -- internal functions
-
-metaToError :: Meta -> Error
-metaToError (Meta c m) = ServerError c m
 
 jsonError :: String -> Error
 jsonError = ClientError 1 -- FIXME
@@ -76,6 +63,11 @@ instance FromJSON Meta where
 
 instance FromJSON a => FromJSON (Envelope a) where
   parseJSON = withObject "envelope" $ \o -> do
-    m <- o .: "meta"
-    r <- o .: "response"
-    return $ Envelope m r
+    Meta status msg <- o .: "meta"
+    if status == 200
+    then Envelope . Right <$> o .: "response"
+    else do
+      detail <- o .: "errors"
+                >>= withArray "errors" (return . V.head)
+                >>= withObject "error" (.: "detail")
+      return $ Envelope $ Left $ ServerError status $ msg ++ " (" ++ detail ++ ")"
