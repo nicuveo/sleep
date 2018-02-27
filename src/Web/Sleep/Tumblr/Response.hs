@@ -9,6 +9,7 @@
 -- module
 
 module Web.Sleep.Tumblr.Response (
+  EnvelopeFromJSON,
   getResponse,
   getResponseT,
   getResponseE) where
@@ -31,13 +32,13 @@ import           Web.Sleep.Tumblr.Error
 
 -- exported functions
 
-getResponse :: (FromJSONResponse Envelope a, FromJSON a) => RawData -> Either Error a
+getResponse :: (EnvelopeFromJSON a) => RawData -> Either Error a
 getResponse = join . fmap getRes . left _jsonError . eitherDecode'
 
-getResponseT :: (MonadThrow m, FromJSON a) => RawData -> m a
+getResponseT :: (EnvelopeFromJSON a, MonadThrow m) => RawData -> m a
 getResponseT = either throw return . getResponse
 
-getResponseE :: (MonadError Error m, FromJSON a) => RawData -> m a
+getResponseE :: (EnvelopeFromJSON a, MonadError Error m) => RawData -> m a
 getResponseE = either throwError return . getResponse
 
 
@@ -67,11 +68,11 @@ instance FromJSON Meta where
     m <- o .: "msg"
     return $ Meta s m
 
-instance (FromJSON a, FromJSONResponse Envelope a) => FromJSON (Envelope a) where
+instance EnvelopeFromJSON a => FromJSON (Envelope a) where
   parseJSON = withObject "envelope" $ \o -> do
     Meta status msg <- o .: "meta"
     if status == 200
-    then fromObject o
+    then toEnvelope o
     else do
       detail <- o .: "errors"
                 >>= withArray "errors" (return . V.head)
@@ -82,11 +83,11 @@ instance (FromJSON a, FromJSONResponse Envelope a) => FromJSON (Envelope a) wher
 
 -- special case for ()
 
-class FromJSONResponse e a where
-  fromObject :: Object -> Parser (e a)
+class FromJSON a => EnvelopeFromJSON a where
+  toEnvelope :: Object -> Parser (Envelope a)
 
-instance FromJSON a => FromJSONResponse Envelope a where
-  fromObject o = Envelope . Right <$> o .: "response"
+instance FromJSON a => EnvelopeFromJSON a where
+  toEnvelope o = Envelope . Right <$> o .: "response"
 
-instance {-# INCOHERENT #-} FromJSONResponse Envelope () where
-  fromObject _ = return $ Envelope $ Right ()
+instance {-# INCOHERENT #-} EnvelopeFromJSON () where
+  toEnvelope _ = return $ Envelope $ Right ()

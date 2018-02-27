@@ -27,7 +27,6 @@ module Web.Sleep.Tumblr.Context (
 import           Control.Exception.Safe
 import           Control.Monad.Except
 import           Control.Monad.Reader
-import           Data.Aeson.Types
 import           Data.ByteString.Lazy
 import qualified Network.HTTP.Client       as N
 import qualified Web.Authenticate.OAuth    as OA
@@ -74,11 +73,11 @@ with = flip runReaderT
 
 -- actual network call and parsing
 
-call  :: (ToRequest q m, HasNetwork c m, MonadReader c m, FromJSON (RequestResult q))
+call  :: (ToRequest q m, HasNetwork c m, MonadReader c m, EnvelopeFromJSON (RequestResult q))
           => q -> m (Either Error (RequestResult q))
-callT :: (ToRequest q m, HasNetwork c m, MonadReader c m, FromJSON (RequestResult q), MonadThrow m)
+callT :: (ToRequest q m, HasNetwork c m, MonadReader c m, EnvelopeFromJSON (RequestResult q), MonadThrow m)
           => q -> m (RequestResult q)
-callE :: (ToRequest q m, HasNetwork c m, MonadReader c m, FromJSON (RequestResult q), MonadError Error m)
+callE :: (ToRequest q m, HasNetwork c m, MonadReader c m, EnvelopeFromJSON (RequestResult q), MonadError Error m)
           => q -> m (RequestResult q)
 call  = fmap getResponse . _doCall
 callT = _doCall >=> getResponseT
