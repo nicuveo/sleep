@@ -227,7 +227,7 @@ getLikes = asks getBlogId >>= getBlogLikes
 instance QueryParam 'QPosts APIKey;
 instance QueryParam 'QPosts Limit;
 instance QueryInfo  'QPosts where
-  type QueryResult  'QPosts = PostList
+  type QueryResult  'QPosts = (Blog, PostList)
   getMethod = const QGet
 
 getBlogPosts :: MonadMaybeAuth c m => BlogId -> m (Query 'QPosts m)

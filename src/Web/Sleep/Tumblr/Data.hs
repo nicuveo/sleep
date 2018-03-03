@@ -177,9 +177,8 @@ data Post = AnswerPost { postBase       :: PostBase
 newtype BlogList = BlogList { blogList :: [Blog]
                             } deriving (Show, Eq)
 
-data PostList = PostList { postBlog :: Blog
-                         , postList :: [Post]
-                         } deriving (Show, Eq)
+newtype PostList = PostList { postList :: [Post]
+                            } deriving (Show, Eq)
 
 
 
@@ -415,7 +414,5 @@ instance FromJSON BlogList where
     BlogList <$> o .: "blogs"
 
 instance FromJSON PostList where
-  parseJSON = withObject "post list" $ \o -> do
-    blog <- o .: "blog"
-    list <- o .: "posts"
-    return $ PostList blog list
+  parseJSON = withObject "post list" $ \o ->
+    PostList <$> o .: "posts"
