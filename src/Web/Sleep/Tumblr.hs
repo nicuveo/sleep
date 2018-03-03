@@ -15,7 +15,9 @@ module Web.Sleep.Tumblr (test) where
 -- imports
 
 import           Control.Monad.Reader
+import           Data.ByteString.Char8    (pack)
 
+import           Web.Sleep.Tumblr.Auth
 import           Web.Sleep.Tumblr.Context
 import           Web.Sleep.Tumblr.Query
 
@@ -38,9 +40,26 @@ import           Web.Sleep.Tumblr.Query
 
 -- debug
 
+input :: String -> IO String
+input prompt = do
+  putStr prompt
+  getLine
+
+validate :: String -> IO String
+validate url = do
+  putStrLn $ "Please authorize: " ++ url
+  input "Validation token: "
+
 test :: IO ()
-test = withAPIKey "FIXME" $ do
-  bi <- call =<< getBlogInfo "beesandbombs.tumblr.com"
-  case bi of
-    Left  err  -> liftIO $ putStrLn $ "failed: " ++ show err
-    Right blog -> liftIO $ print blog
+test = do
+  appKey    <- pack <$> input "API key:          "
+  appSecret <- pack <$> input "API secret:       "
+  let oauth = tumblrOAuth appKey appSecret
+  authCred  <- getSimpleDebugAuthCred validate oauth
+  withAuth authCred $ do
+    bi <- call =<< getBlogInfo "beesandbombs.tumblr.com"
+    case bi of
+      Left  err  -> liftIO $ putStrLn $ "failed: " ++ show err
+      Right blog -> liftIO $ print blog
+    bpd <- callT =<< getBlogPostsDraft "nicuveo.tumblr.com"
+    liftIO $ print bpd
