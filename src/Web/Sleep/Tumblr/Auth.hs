@@ -7,7 +7,6 @@
 
 module Web.Sleep.Tumblr.Auth (
   -- exported types
-  AppName,
   AppKey,
   AppSecret,
   OAuth,
@@ -35,8 +34,9 @@ import           Control.Monad.RWS
 import           Control.Monad.State
 import           Control.Monad.Trans.Maybe
 import           Control.Monad.Writer
-import           Data.ByteString
+import           Data.ByteString.Char8     (ByteString, pack)
 import qualified Network.HTTP.Client       as N
+import qualified Network.HTTP.Client.TLS   as N
 import qualified Web.Authenticate.OAuth    as OA
 
 import           Web.Sleep.Common.Misc
@@ -46,7 +46,6 @@ import           Web.Sleep.Common.Network
 
 -- type aliases
 
-type AppName    = String
 type AppKey     = ByteString
 type AppSecret  = ByteString
 type OAuth      = OA.OAuth
@@ -79,26 +78,30 @@ instance MonadSign m             => MonadSign (StateT s m)   where signOAuth = l
 
 -- exported functions
 
-tumblrOAuth :: AppName -> AppKey -> AppSecret -> OAuth
-tumblrOAuth name key secret =
-  OA.newOAuth { OA.oauthServerName     = name
-              , OA.oauthRequestUri     = "http://www.tumblr.com/oauth/request_token"
-              , OA.oauthAuthorizeUri   = "http://www.tumblr.com/oauth/authorize"
-              , OA.oauthAccessTokenUri = "http://www.tumblr.com/oauth/access_token"
-              , OA.oauthConsumerKey    = key
-              , OA.oauthConsumerSecret = secret
+tumblrOAuth :: AppKey -> AppSecret -> OAuth
+tumblrOAuth key secret =
+  OA.newOAuth { OA.oauthServerName      = "tumblr"
+              , OA.oauthRequestUri      = "https://www.tumblr.com/oauth/request_token"
+              , OA.oauthAuthorizeUri    = "https://www.tumblr.com/oauth/authorize"
+              , OA.oauthAccessTokenUri  = "https://www.tumblr.com/oauth/access_token"
+              , OA.oauthVersion         = OA.OAuth10a
+              , OA.oauthSignatureMethod = OA.HMACSHA1
+              , OA.oauthConsumerKey     = key
+              , OA.oauthConsumerSecret  = secret
               }
+
 
 
 -- helpers
 
-type URLCallback m = String -> m ()
+type URLCallback m = String -> m String
 
 getSimpleAuthCred :: MonadIO m => URLCallback m -> N.Manager -> OAuth -> m AuthCred
 getSimpleAuthCred callback manager oauth = do
-  tempcred <- OA.getTemporaryCredential oauth manager
-  callback $ OA.authorizeUrl oauth tempcred
-  cred <- OA.getAccessToken oauth tempcred manager
+  tempCred <- OA.getTemporaryCredential oauth manager
+  verifier <- callback $ OA.authorizeUrl oauth tempCred
+  let newCred = OA.injectVerifier (pack verifier) tempCred
+  cred     <- OA.getAccessToken oauth newCred manager
   return (oauth, cred)
 
 getSimpleAuthCredM :: MonadManager r m => URLCallback m -> OAuth -> m AuthCred
@@ -108,5 +111,5 @@ getSimpleAuthCredM callback oauth = do
 
 getSimpleDebugAuthCred :: MonadIO m => URLCallback m -> OAuth -> m AuthCred
 getSimpleDebugAuthCred callback oauth = do
-  manager <- liftIO $ N.newManager N.defaultManagerSettings
+  manager <- liftIO $ N.newManager N.tlsManagerSettings
   getSimpleAuthCred callback manager oauth

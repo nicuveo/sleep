@@ -29,6 +29,7 @@ import           Control.Monad.Except
 import           Control.Monad.Reader
 import           Data.ByteString.Lazy
 import qualified Network.HTTP.Client       as N
+import qualified Network.HTTP.Client.TLS   as N
 import qualified Web.Authenticate.OAuth    as OA
 
 import           Web.Sleep.Common.Network
@@ -153,4 +154,4 @@ instance HasNetwork c m => HasNetwork (BlogContext c) m where
 -- local helpers
 
 defaultManager :: MonadIO m => m N.Manager
-defaultManager = liftIO $ N.newManager N.defaultManagerSettings
+defaultManager = liftIO $ N.newManager N.tlsManagerSettings
