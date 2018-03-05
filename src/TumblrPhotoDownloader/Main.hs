@@ -145,8 +145,9 @@ main :: IO ()
 main = logFatalOnException $ do
   let blog = "nicuveo.tumblr.com" -- FIXME
   configDir blog >>= createDirectoryIfMissing True
-  apiKey <- fromString <$> getEnv "TUMBLR_API_KEY"
   config <- loadConfig blog
+  createDirectoryIfMissing True $ configOutDir config
+  apiKey <- fromString <$> getEnv "TUMBLR_API_KEY"
   mutex  <- lockFile blog
   lastId <- protect mutex $ runResourceT $ withAPIKey apiKey $ withBlog (BlogId blog) $ downloadPhotos config 0
   writeConfig blog $ config { configLastId = lastId }
