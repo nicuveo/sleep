@@ -10,15 +10,16 @@
 -- module
 
 module Web.Sleep.Tumblr.Context (
-       anonymously,
-       withAPIKey,
-       withAuth,
-       withBlog,
-       with,
-       call,
-       callT,
-       callE,
-       ) where
+  HasNetwork,
+  anonymously,
+  withAPIKey,
+  withAuth,
+  withBlog,
+  with,
+  call,
+  callT,
+  callE,
+  ) where
 
 
 
@@ -115,7 +116,9 @@ instance MayHaveAuthCred JustAuthCred
 instance HasAuthCred JustAuthCred where
   getAuthCred = ctxAuthCred
 
-instance HasAuthCred c => MayHaveAuthCred (BlogContext c)
+instance MayHaveAuthCred c => MayHaveAuthCred (BlogContext c) where
+  maybeGetAuthCred = maybeGetAuthCred . ctx
+
 instance HasAuthCred c => HasAuthCred (BlogContext c) where
   getAuthCred = getAuthCred . ctx
 
