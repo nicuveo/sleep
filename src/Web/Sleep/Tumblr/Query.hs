@@ -36,10 +36,14 @@ module Web.Sleep.Tumblr.Query (
   BlogId(..),
   APIKey(..),
   Limit(..),
+  Offset(..),
+  PType(..),
   HasBlogId(..),
   HasAPIKey(..),
   HasAuthCred(..),
   MayHaveAuthCred(..),
+  MonadAuth,
+  MonadMaybeAuth,
 
   -- blog info
   getBlogInfo,
@@ -115,6 +119,7 @@ class QueryInfo (q :: QName) where
   getMethod :: Query q m -> QMethod
 
 
+
 -- query instances
 
 instance Monad m => ToRequest (Query q m) m where
@@ -145,10 +150,11 @@ toURI = fmap N.getUri . toRequest
 
 -- parameters
 
-newtype BlogId = BlogId    String deriving (Show, Eq, Typeable, IsString)
-newtype APIKey = APIKey    AppKey deriving (Show, Eq, Typeable, IsString)
-newtype Limit  = Limit     Int    deriving (Show, Eq, Typeable)
-newtype Offset = Offset    Int    deriving (Show, Eq, Typeable)
+newtype BlogId = BlogId  String   deriving (Show, Eq, Typeable, IsString)
+newtype APIKey = APIKey  AppKey   deriving (Show, Eq, Typeable, IsString)
+newtype Limit  = Limit   Int      deriving (Show, Eq, Typeable)
+newtype Offset = Offset  Int      deriving (Show, Eq, Typeable)
+newtype PType  = PType   PostType deriving (Show, Eq, Typeable)
 data PostRange = POffset Int
                | PBefore UTCTime
                | PAfter  UTCTime
@@ -157,6 +163,7 @@ data PostRange = POffset Int
 instance ToParameter APIKey    where mkParam (APIKey    p) = ("api_key", p)
 instance ToParameter Limit     where mkParam (Limit     p) = ("limit",  pack $ show $ clamp 1 20 p)
 instance ToParameter Offset    where mkParam (Offset    o) = ("offset", pack $ show o)
+instance ToParameter PType     where mkParam (PType     p) = ("type",   pack $ show p)
 instance ToParameter PostRange where mkParam (POffset   o) = ("offset", pack $ show o)
                                      mkParam (PBefore   d) = ("before", pack $ show $ toTimestamp d)
                                      mkParam (PAfter    d) = ("after",  pack $ show $ toTimestamp d)
@@ -226,8 +233,10 @@ getLikes = asks getBlogId >>= getBlogLikes
 
 instance QueryParam 'QPosts APIKey;
 instance QueryParam 'QPosts Limit;
+instance QueryParam 'QPosts Offset;
+instance QueryParam 'QPosts PType;
 instance QueryInfo  'QPosts where
-  type QueryResult  'QPosts = (Blog, PostList)
+  type QueryResult  'QPosts = PostList
   getMethod = const QGet
 
 getBlogPosts :: MonadMaybeAuth c m => BlogId -> m (Query 'QPosts m)
