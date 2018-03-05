@@ -74,10 +74,13 @@ instance EnvelopeFromJSON a => FromJSON (Envelope a) where
     if status == 200
     then toEnvelope o
     else do
-      detail <- o .: "errors"
-                >>= withArray "errors" (return . V.head)
-                >>= withObject "error" (.: "detail")
-      return $ Envelope $ Left $ ServerError status $ msg ++ " (" ++ detail ++ ")"
+      let result s = return $ Envelope $ Left $ ServerError status $ msg ++ s
+      maybeErrors <- o .:? "errors"
+      case maybeErrors of
+        Nothing -> result ""
+        Just es -> do
+          detail <- withObject "error" (.: "detail") =<< withArray "errors" (return . V.head) es
+          result $ " (" ++ detail ++ ")"
 
 
 
