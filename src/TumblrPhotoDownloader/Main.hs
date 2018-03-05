@@ -71,10 +71,16 @@ loadConfig blog = do
   cf <- configFile blog
   e  <- doesFileExist cf
   if e
-  then readFile cf >>= either (throw . JSONException) return . eitherDecode . pack
-  else do
-    logWarning $ "config not found for " ++ blog
-    getHomeDirectory >>= \hd -> return $ Config hd 0
+  then do
+    fc <- readFile cf
+    if not $ null fc
+    then either (throw . JSONException) return $ eitherDecode $ pack fc
+    else defaultConfig
+  else defaultConfig
+  where defaultConfig = do
+          logWarning $ "config not found for " ++ blog
+          getHomeDirectory >>= \hd -> return $ Config hd 0
+
 
 writeConfig :: String -> Config -> IO ()
 writeConfig blog config = do
