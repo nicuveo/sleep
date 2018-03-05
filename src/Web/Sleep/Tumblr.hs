@@ -8,18 +8,23 @@
 
 -- module
 
-module Web.Sleep.Tumblr (test) where
+module Web.Sleep.Tumblr (
+  module Web.Sleep.Tumblr.Export,
+  test) where
 
 
 
 -- imports
 
 import           Control.Monad.Reader
-import           Data.ByteString.Char8    (pack)
+import           Data.ByteString.Char8     (pack)
 
-import           Web.Sleep.Tumblr.Auth
-import           Web.Sleep.Tumblr.Context
-import           Web.Sleep.Tumblr.Query
+import           Web.Sleep.Tumblr.Auth     as Web.Sleep.Tumblr.Export
+import           Web.Sleep.Tumblr.Context  as Web.Sleep.Tumblr.Export
+import           Web.Sleep.Tumblr.Data     as Web.Sleep.Tumblr.Export
+import           Web.Sleep.Tumblr.Error    as Web.Sleep.Tumblr.Export
+import           Web.Sleep.Tumblr.Query    as Web.Sleep.Tumblr.Export
+import           Web.Sleep.Tumblr.Response as Web.Sleep.Tumblr.Export
 
 
 -- blog following
