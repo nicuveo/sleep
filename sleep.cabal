@@ -46,12 +46,40 @@ library
                        ixset,
                        mtl,
                        network-uri,
+                       resourcet,
                        safe-exceptions,
                        text,
                        time,
                        transformers,
                        url,
                        vector
+
+executable tumblr-photo-download
+  main-is:             Main.hs
+  hs-source-dirs:      src/TumblrPhotoDownloader
+  default-language:    Haskell2010
+  ghc-options:         -Wall
+                       -Wcompat
+                       -Wincomplete-record-updates
+                       -Wincomplete-uni-patterns
+                       -Wredundant-constraints
+                       -fno-warn-type-defaults
+                       -fno-warn-unused-do-bind
+                       -fwarn-tabs
+                       -O2
+                       -threaded -rtsopts -with-rtsopts=-N
+  build-depends:       base >= 4.7 && < 5, sleep,
+                       aeson,
+                       bytestring,
+                       conduit,
+                       conduit-extra,
+                       directory,
+                       filepath,
+                       http-client,
+                       http-conduit,
+                       mtl,
+                       resourcet,
+                       url
 
 -- test-suite sleep-test
 --   type:                exitcode-stdio-1.0
