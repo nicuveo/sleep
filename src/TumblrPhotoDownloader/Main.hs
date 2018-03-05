@@ -129,8 +129,9 @@ downloadPhotos config o = do
   -- liftIO . print . getUri =<< toRequest =<< getPosts &= Offset o &= PType PhotoType &= Limit 20
   (PostList posts) <- callT =<< getPosts &= Offset o &= PType PhotoType &= Limit 20
   let recentEnough = [post | post <- posts, pId (postBase post) > configLastId config]
-  when (length recentEnough == 20) $ void $ downloadPhotos config $ o + 20
-  liftIO $ logInfo $ printf "%d file(s) remaining" $ length recentEnough
+      remaining = length recentEnough
+  when (remaining == 20) $ void $ downloadPhotos config $ o + 20
+  when (remaining > 0) $ liftIO $ logInfo $ printf "%d file(s) remaining" $ length recentEnough
   forM_ [ ( pId $ postBase post
           , index
           , exportURL $ photoURL $ photoOriginal photo
