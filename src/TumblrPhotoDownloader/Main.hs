@@ -138,7 +138,7 @@ downloadPhotos config o = do
         | post  <- reverse recentEnough
         , (index, photo) <- zip [1..] $ postPhotos post
         ] $ downloadPhoto config
-  return $ maximum $ map (pId . postBase) recentEnough
+  return $ maximum $ configLastId config : map (pId . postBase) recentEnough
 
 main :: IO ()
 main = logFatalOnException $ do
