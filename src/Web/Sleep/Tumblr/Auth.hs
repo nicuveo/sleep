@@ -33,11 +33,12 @@ import           Control.Monad.Reader
 import           Control.Monad.RWS
 import           Control.Monad.State
 import           Control.Monad.Trans.Maybe
+import           Control.Monad.Trans.Resource
 import           Control.Monad.Writer
-import           Data.ByteString.Char8     (ByteString, pack)
-import qualified Network.HTTP.Client       as N
-import qualified Network.HTTP.Client.TLS   as N
-import qualified Web.Authenticate.OAuth    as OA
+import           Data.ByteString.Char8        (ByteString, pack)
+import qualified Network.HTTP.Client          as N
+import qualified Network.HTTP.Client.TLS      as N
+import qualified Web.Authenticate.OAuth       as OA
 
 import           Web.Sleep.Common.Misc
 import           Web.Sleep.Common.Network
@@ -73,6 +74,7 @@ instance MonadSign m             => MonadSign (ListT m)      where signOAuth = l
 instance MonadSign m             => MonadSign (MaybeT m)     where signOAuth = lift ... signOAuth
 instance MonadSign m             => MonadSign (ReaderT r m)  where signOAuth = lift ... signOAuth
 instance MonadSign m             => MonadSign (StateT s m)   where signOAuth = lift ... signOAuth
+instance MonadSign m             => MonadSign (ResourceT m)  where signOAuth = lift ... signOAuth
 
 
 
