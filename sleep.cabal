@@ -28,11 +28,12 @@ library
                        Web.Sleep.Common.Network,
                        Web.Sleep.Tumblr,
                        Web.Sleep.Tumblr.Auth,
-                       Web.Sleep.Tumblr.Context,
                        Web.Sleep.Tumblr.Data,
                        Web.Sleep.Tumblr.Error,
+                       Web.Sleep.Tumblr.Network,
                        Web.Sleep.Tumblr.Query,
                        Web.Sleep.Tumblr.Response
+                       Web.Sleep.Tumblr.Simple
   build-depends:       base >= 4.7 && < 5,
                        MissingH,
                        aeson,

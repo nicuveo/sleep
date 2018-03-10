@@ -37,7 +37,6 @@ import           Control.Monad.Trans.Resource
 import           Control.Monad.Writer
 import           Data.ByteString.Char8        (ByteString, pack)
 import qualified Network.HTTP.Client          as N
-import qualified Network.HTTP.Client.TLS      as N
 import qualified Web.Authenticate.OAuth       as OA
 
 import           Web.Sleep.Common.Misc
@@ -106,12 +105,12 @@ getSimpleAuthCred callback manager oauth = do
   cred     <- OA.getAccessToken oauth newCred manager
   return (oauth, cred)
 
-getSimpleAuthCredM :: MonadManager r m => URLCallback m -> OAuth -> m AuthCred
+getSimpleAuthCredM :: (MonadIO m, MonadReader c m, N.HasHttpManager c) => URLCallback m -> OAuth -> m AuthCred
 getSimpleAuthCredM callback oauth = do
   manager <- asks N.getHttpManager
   getSimpleAuthCred callback manager oauth
 
 getSimpleDebugAuthCred :: MonadIO m => URLCallback m -> OAuth -> m AuthCred
 getSimpleDebugAuthCred callback oauth = do
-  manager <- liftIO $ N.newManager N.tlsManagerSettings
+  manager <- defaultManager
   getSimpleAuthCred callback manager oauth

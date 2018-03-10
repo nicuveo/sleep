@@ -10,6 +10,7 @@ A collection of miscellaneous helpers.
 
 module Web.Sleep.Common.Misc (
   (...),
+  with,
   clamp,
   fromTimestamp,
   toTimestamp,
@@ -19,6 +20,7 @@ module Web.Sleep.Common.Misc (
 
 -- imports
 
+import           Control.Monad.Reader
 import           Data.Time.Clock
 import           Data.Time.Clock.POSIX
 
@@ -28,6 +30,9 @@ import           Data.Time.Clock.POSIX
 
 (...) :: (c -> d) -> (a -> b -> c) -> a -> b -> d
 (f ... g) x y = f $ g x y
+
+with :: c -> ReaderT c m r -> m r
+with = flip runReaderT
 
 clamp :: Ord a => a -> a -> a -> a
 clamp a b

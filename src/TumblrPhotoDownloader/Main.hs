@@ -119,9 +119,9 @@ downloadPhoto config (pid, index, url) = do
 
 downloadPhotos :: ( MonadResource m
                   , MonadBaseControl IO m
-                  , HasHttpManager env
+                  , MonadNetwork env m
                   , MonadMaybeAuth env m
-                  , HasNetwork env m
+                  , HasHttpManager env
                   , HasBlogId env
                   ) =>
                   Config -> Int -> m Int

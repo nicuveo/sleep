@@ -1,50 +1,33 @@
-{-# LANGUAGE DataKinds             #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE TypeFamilies          #-}
 
 
 
 -- module
 
-module Web.Sleep.Tumblr.Context (
-  HasNetwork,
+module Web.Sleep.Tumblr.Simple (
   anonymously,
   withAPIKey,
   withAuth,
   withBlog,
   with,
-  call,
-  callT,
-  callE,
   ) where
 
 
 
 -- imports
 
-import           Control.Exception.Safe
-import           Control.Monad.Except
 import           Control.Monad.Reader
-import           Data.ByteString.Lazy
-import qualified Network.HTTP.Client       as N
-import qualified Network.HTTP.Client.TLS   as N
-import qualified Web.Authenticate.OAuth    as OA
+import qualified Network.HTTP.Client      as N
+import qualified Web.Authenticate.OAuth   as OA
 
+
+import           Web.Sleep.Common.Misc
 import           Web.Sleep.Common.Network
-import           Web.Sleep.Tumblr.Auth     (AuthCred)
-import           Web.Sleep.Tumblr.Error
+import           Web.Sleep.Tumblr.Auth    (AuthCred)
 import           Web.Sleep.Tumblr.Query
-import           Web.Sleep.Tumblr.Response
-
-
-
--- network interfaces
-
-class Monad m => HasNetwork c m where
-  send :: c -> N.Request -> m ByteString
 
 
 
@@ -68,29 +51,8 @@ withAuth auth e = do
 withBlog :: BlogId -> ReaderT (BlogContext c) m r -> ReaderT c m r
 withBlog bid = withReaderT $ BlogContext bid
 
-with :: c -> ReaderT c m r -> m r
-with = flip runReaderT
 
 
-
--- actual network call and parsing
-
-call  :: (ToRequest q m, HasNetwork c m, MonadReader c m, EnvelopeFromJSON (RequestResult q))
-          => q -> m (Either Error (RequestResult q))
-callT :: (ToRequest q m, HasNetwork c m, MonadReader c m, EnvelopeFromJSON (RequestResult q), MonadThrow m)
-          => q -> m (RequestResult q)
-callE :: (ToRequest q m, HasNetwork c m, MonadReader c m, EnvelopeFromJSON (RequestResult q), MonadError Error m)
-          => q -> m (RequestResult q)
-call  = fmap getResponse . _doCall
-callT = _doCall >=> getResponseT
-callE = _doCall >=> getResponseE
-
-_doCall :: (ToRequest q m, HasNetwork c m, MonadReader c m)
-          => q -> m ByteString
-_doCall q = do
-  r <- toRequest q
-  c <- ask
-  send c r
 
 
 
@@ -140,21 +102,9 @@ instance N.HasHttpManager c => N.HasHttpManager (BlogContext c) where
   getHttpManager = N.getHttpManager . ctx
 
 
-instance MonadIO m => HasNetwork NoContext m where
-  send c r = liftIO $ fmap N.responseBody $ N.httpLbs r $ N.getHttpManager c
-
-instance MonadIO m => HasNetwork JustAPIKey m where
-  send c r = liftIO $ fmap N.responseBody $ N.httpLbs r $ N.getHttpManager c
-
-instance MonadIO m => HasNetwork JustAuthCred m where
-  send c r = liftIO $ fmap N.responseBody $ N.httpLbs r $ N.getHttpManager c
+instance MonadIO m => HasNetwork NoContext       m
+instance MonadIO m => HasNetwork JustAPIKey      m
+instance MonadIO m => HasNetwork JustAuthCred    m
 
 instance HasNetwork c m => HasNetwork (BlogContext c) m where
-  send = send . ctx
-
-
-
--- local helpers
-
-defaultManager :: MonadIO m => m N.Manager
-defaultManager = liftIO $ N.newManager N.tlsManagerSettings
+  send c = send $ ctx c
