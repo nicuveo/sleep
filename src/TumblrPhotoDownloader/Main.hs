@@ -105,26 +105,16 @@ protect mutex action = finally (lock mutex >> action) $ unlock mutex
 
 -- main
 
-downloadPhoto :: ( MonadResource m
-                 , MonadBaseControl IO m
-                 , HasHttpManager env
-                 , MonadMaybeAuth env m
-                 ) =>
-                 Config -> (Int, Int, String) -> m ()
+type SimpleMonad = SimpleAPIKeyBlogMonad (ResourceT IO)
+
+downloadPhoto :: Config -> (Int, Int, String) -> SimpleMonad ()
 downloadPhoto config (pid, index, url) = do
   let filepath = configOutDir config </> show pid ++ "-" ++ show index
   req <- parseRequest url
   liftIO $ logInfo $ printf "downloading %s from %s" filepath url
   withResponse req $ \resp -> responseBody resp $$ sinkFile filepath
 
-downloadPhotos :: ( MonadResource m
-                  , MonadBaseControl IO m
-                  , MonadNetwork env m
-                  , MonadMaybeAuth env m
-                  , HasHttpManager env
-                  , HasBlogId env
-                  ) =>
-                  Config -> Int -> m Int
+downloadPhotos :: Config -> Int -> SimpleMonad Int
 downloadPhotos config o = do
   -- liftIO . print . getUri =<< toRequest =<< getPosts &= Offset o &= PType PhotoType &= Limit 20
   (PostList posts) <- callT =<< getPosts &= Offset o &= PType PhotoType &= Limit 20

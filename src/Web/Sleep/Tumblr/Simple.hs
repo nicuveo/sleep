@@ -8,11 +8,18 @@
 -- module
 
 module Web.Sleep.Tumblr.Simple (
+  SimpleAnonymousMonad,
+  SimpleAPIKeyMonad,
+  SimpleAPIKeyBlogMonad,
+  SimpleAuthCredMonad,
+  SimpleAuthCredBlogMonad,
   anonymously,
   withAPIKey,
   withAuth,
   withBlog,
-  with,
+  getSimpleAuthCred,
+  getSimpleDebugAuthCred,
+  getSimpleAuthCredM,
   ) where
 
 
@@ -20,30 +27,39 @@ module Web.Sleep.Tumblr.Simple (
 -- imports
 
 import           Control.Monad.Reader
+import           Data.ByteString.Char8    (pack)
 import qualified Network.HTTP.Client      as N
 import qualified Web.Authenticate.OAuth   as OA
 
-
-import           Web.Sleep.Common.Misc
 import           Web.Sleep.Common.Network
-import           Web.Sleep.Tumblr.Auth    (AuthCred)
+import           Web.Sleep.Tumblr.Auth
 import           Web.Sleep.Tumblr.Query
+
+
+
+-- type aliases for simple monad use
+
+type SimpleAnonymousMonad    = ReaderT NoContext
+type SimpleAPIKeyMonad       = ReaderT JustAPIKey
+type SimpleAPIKeyBlogMonad   = ReaderT (BlogContext JustAPIKey)
+type SimpleAuthCredMonad     = ReaderT JustAuthCred
+type SimpleAuthCredBlogMonad = ReaderT (BlogContext JustAuthCred)
 
 
 
 -- helper functions for simple usage
 
-anonymously :: MonadIO m => ReaderT NoContext m r -> m r
+anonymously :: MonadIO m => SimpleAnonymousMonad m r -> m r
 anonymously e = do
   m <- defaultManager
   runReaderT e $ NoContext m
 
-withAPIKey :: MonadIO m => APIKey -> ReaderT JustAPIKey m r -> m r
+withAPIKey :: MonadIO m => APIKey -> SimpleAPIKeyMonad m r -> m r
 withAPIKey key e = do
   m <- defaultManager
   runReaderT e $ JustAPIKey m key
 
-withAuth :: MonadIO m => AuthCred -> ReaderT JustAuthCred m r -> m r
+withAuth :: MonadIO m => AuthCred -> SimpleAuthCredMonad m r -> m r
 withAuth auth e = do
   m <- defaultManager
   runReaderT e $ JustAuthCred m auth
@@ -53,6 +69,27 @@ withBlog bid = withReaderT $ BlogContext bid
 
 
 
+-- auth simple helpers
+
+type URLCallback m = String -> m String
+
+getSimpleAuthCred :: MonadIO m => URLCallback m -> N.Manager -> OAuth -> m AuthCred
+getSimpleAuthCred callback manager oauth = do
+  tempCred <- OA.getTemporaryCredential oauth manager
+  verifier <- callback $ OA.authorizeUrl oauth tempCred
+  let newCred = OA.injectVerifier (pack verifier) tempCred
+  cred     <- OA.getAccessToken oauth newCred manager
+  return (oauth, cred)
+
+getSimpleAuthCredM :: (MonadIO m, MonadReader c m, N.HasHttpManager c) => URLCallback m -> OAuth -> m AuthCred
+getSimpleAuthCredM callback oauth = do
+  manager <- asks N.getHttpManager
+  getSimpleAuthCred callback manager oauth
+
+getSimpleDebugAuthCred :: MonadIO m => URLCallback m -> OAuth -> m AuthCred
+getSimpleDebugAuthCred callback oauth = do
+  manager <- defaultManager
+  getSimpleAuthCred callback manager oauth
 
 
 

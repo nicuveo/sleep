@@ -16,9 +16,6 @@ module Web.Sleep.Tumblr.Auth (
   MonadSign(..),
   -- exported functions
   tumblrOAuth,
-  getSimpleAuthCred,
-  getSimpleDebugAuthCred,
-  getSimpleAuthCredM,
   ) where
 
 
@@ -35,12 +32,11 @@ import           Control.Monad.State
 import           Control.Monad.Trans.Maybe
 import           Control.Monad.Trans.Resource
 import           Control.Monad.Writer
-import           Data.ByteString.Char8        (ByteString, pack)
+import           Data.ByteString
 import qualified Network.HTTP.Client          as N
 import qualified Web.Authenticate.OAuth       as OA
 
 import           Web.Sleep.Common.Misc
-import           Web.Sleep.Common.Network
 
 
 
@@ -90,27 +86,3 @@ tumblrOAuth key secret =
               , OA.oauthConsumerKey     = key
               , OA.oauthConsumerSecret  = secret
               }
-
-
-
--- helpers
-
-type URLCallback m = String -> m String
-
-getSimpleAuthCred :: MonadIO m => URLCallback m -> N.Manager -> OAuth -> m AuthCred
-getSimpleAuthCred callback manager oauth = do
-  tempCred <- OA.getTemporaryCredential oauth manager
-  verifier <- callback $ OA.authorizeUrl oauth tempCred
-  let newCred = OA.injectVerifier (pack verifier) tempCred
-  cred     <- OA.getAccessToken oauth newCred manager
-  return (oauth, cred)
-
-getSimpleAuthCredM :: (MonadIO m, MonadReader c m, N.HasHttpManager c) => URLCallback m -> OAuth -> m AuthCred
-getSimpleAuthCredM callback oauth = do
-  manager <- asks N.getHttpManager
-  getSimpleAuthCred callback manager oauth
-
-getSimpleDebugAuthCred :: MonadIO m => URLCallback m -> OAuth -> m AuthCred
-getSimpleDebugAuthCred callback oauth = do
-  manager <- defaultManager
-  getSimpleAuthCred callback manager oauth
