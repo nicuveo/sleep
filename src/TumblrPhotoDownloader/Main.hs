@@ -22,7 +22,9 @@ import           System.Environment
 import           System.Exit
 import           System.FilePath
 import           Text.Printf
+
 import           Web.Sleep.Tumblr
+import           Web.Sleep.Tumblr.Simple
 
 
 

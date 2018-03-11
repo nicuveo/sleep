@@ -15,4 +15,3 @@ import           Web.Sleep.Tumblr.Error    as Web.Sleep.Tumblr.Export
 import           Web.Sleep.Tumblr.Network  as Web.Sleep.Tumblr.Export
 import           Web.Sleep.Tumblr.Query    as Web.Sleep.Tumblr.Export
 import           Web.Sleep.Tumblr.Response as Web.Sleep.Tumblr.Export
-import           Web.Sleep.Tumblr.Simple   as Web.Sleep.Tumblr.Export
