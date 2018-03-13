@@ -74,8 +74,8 @@ module Web.Sleep.Tumblr.Query (
 -- imports
 
 import           Control.Monad.Reader
-import           Data.ByteString           (ByteString)
-import           Data.ByteString.Char8
+import qualified Data.ByteString           as B (ByteString, concat)
+import qualified Data.ByteString.Char8     as B
 import qualified Data.Map.Strict           as M
 import           Data.String
 import           Data.Time.Clock
@@ -104,7 +104,7 @@ data Query (q :: QName) m = Query { request :: N.Request
                                   , sign    :: N.Request -> m N.Request
                                   }
 
-type Parameter = (ByteString, ByteString)
+type Parameter = (B.ByteString, B.ByteString)
 type ParametersMap = M.Map TypeRep Parameter
 
 class Typeable p => ToParameter p where
@@ -160,13 +160,12 @@ data PostRange = POffset Int
                | PAfter  UTCTime
                deriving (Show, Eq, Typeable)
 
-instance ToParameter APIKey    where mkParam (APIKey    p) = ("api_key", p)
-instance ToParameter Limit     where mkParam (Limit     p) = ("limit",  pack $ show $ clamp 1 20 p)
-instance ToParameter Offset    where mkParam (Offset    o) = ("offset", pack $ show o)
-instance ToParameter PType     where mkParam (PType     p) = ("type",   pack $ show p)
-instance ToParameter PostRange where mkParam (POffset   o) = ("offset", pack $ show o)
-                                     mkParam (PBefore   d) = ("before", pack $ show $ toTimestamp d)
-                                     mkParam (PAfter    d) = ("after",  pack $ show $ toTimestamp d)
+instance ToParameter Limit     where mkParam (Limit     p) = ("limit",  B.pack $ show $ clamp 1 20 p)
+instance ToParameter Offset    where mkParam (Offset    o) = ("offset", B.pack $ show o)
+instance ToParameter PType     where mkParam (PType     p) = ("type",   B.pack $ show p)
+instance ToParameter PostRange where mkParam (POffset   o) = ("offset", B.pack $ show o)
+                                     mkParam (PBefore   d) = ("before", B.pack $ show $ toTimestamp d)
+                                     mkParam (PAfter    d) = ("after",  B.pack $ show $ toTimestamp d)
 
 class HasBlogId a where
   getBlogId :: a -> BlogId
@@ -182,7 +181,7 @@ class MayHaveAuthCred a where
   default maybeGetAuthCred :: HasAuthCred a => a -> Maybe AuthCred
   maybeGetAuthCred = Just . getAuthCred
 
-type MonadAuth c m = (MonadReader c m, MonadSign m, HasAPIKey c, HasAuthCred c)
+type MonadAuth      c m = (MonadReader c m, MonadSign m, HasAuthCred c)
 type MonadMaybeAuth c m = (MonadReader c m, MonadSign m, HasAPIKey c, MayHaveAuthCred c)
 
 
@@ -199,13 +198,12 @@ instance HasAPIKey APIKey where { getAPIKey = id }
 
 -- blog info
 
-instance QueryParam 'QInfo APIKey
 instance QueryInfo  'QInfo where
   type QueryResult  'QInfo = Blog
   getMethod = const QGet
 
 getBlogInfo :: MonadMaybeAuth c m => BlogId -> m (Query 'QInfo m)
-getBlogInfo (BlogId bid) = liftMaybeAddAuth $ addAPIKey $ mkQuery $ "blog/" ++ bid ++ "/info"
+getBlogInfo (BlogId bid) = liftMaybeAddAuth $ mkQuery $ "blog/" ++ bid ++ "/info"
 
 getInfo :: (MonadMaybeAuth c m, HasBlogId c) => m (Query 'QInfo m)
 getInfo = asks getBlogId >>= getBlogInfo
@@ -214,7 +212,6 @@ getInfo = asks getBlogId >>= getBlogInfo
 
 -- blog likes
 
-instance QueryParam 'QLikes APIKey
 instance QueryParam 'QLikes Limit
 instance QueryParam 'QLikes PostRange
 instance QueryInfo  'QLikes where
@@ -222,7 +219,7 @@ instance QueryInfo  'QLikes where
   getMethod = const QGet
 
 getBlogLikes :: MonadMaybeAuth c m => BlogId -> m (Query 'QLikes m)
-getBlogLikes (BlogId bid) = liftMaybeAddAuth $ addAPIKey $ mkQuery $ "blog/" ++ bid ++ "/likes"
+getBlogLikes (BlogId bid) = liftMaybeAddAuth $ mkQuery $ "blog/" ++ bid ++ "/likes"
 
 getLikes :: (MonadMaybeAuth c m, HasBlogId c) => m (Query 'QLikes m)
 getLikes = asks getBlogId >>= getBlogLikes
@@ -231,7 +228,6 @@ getLikes = asks getBlogId >>= getBlogLikes
 
 -- blog posts
 
-instance QueryParam 'QPosts APIKey;
 instance QueryParam 'QPosts Limit;
 instance QueryParam 'QPosts Offset;
 instance QueryParam 'QPosts PType;
@@ -240,13 +236,13 @@ instance QueryInfo  'QPosts where
   getMethod = const QGet
 
 getBlogPosts :: MonadMaybeAuth c m => BlogId -> m (Query 'QPosts m)
-getBlogPosts (BlogId bid) = liftMaybeAddAuth $ addAPIKey $ mkQuery $ "blog/" ++ bid ++ "/posts"
+getBlogPosts (BlogId bid) = liftMaybeAddAuth $ mkQuery $ "blog/" ++ bid ++ "/posts"
 
 getPosts :: (MonadMaybeAuth c m, HasBlogId c) => m (Query 'QPosts m)
 getPosts = asks getBlogId >>= getBlogPosts
 
 getBlogPostsByType :: MonadMaybeAuth c m => BlogId -> PostType -> m (Query 'QPosts m)
-getBlogPostsByType (BlogId bid) t = liftMaybeAddAuth $ addAPIKey $ mkQuery $ "blog/" ++ bid ++ "/posts/" ++ show t
+getBlogPostsByType (BlogId bid) t = liftMaybeAddAuth $ mkQuery $ "blog/" ++ bid ++ "/posts/" ++ show t
 
 getPostsByType :: (MonadMaybeAuth c m, HasBlogId c) => PostType -> m (Query 'QPosts m)
 getPostsByType t = asks getBlogId >>= flip getBlogPostsByType t
@@ -255,7 +251,6 @@ getPostsByType t = asks getBlogId >>= flip getBlogPostsByType t
 
 -- blog posts queue
 
-instance QueryParam 'QPostsQueue APIKey;
 instance QueryParam 'QPostsQueue Limit;
 instance QueryInfo  'QPostsQueue where
   type QueryResult  'QPostsQueue = PostList
@@ -271,13 +266,12 @@ getPostsQueue = asks getBlogId >>= getBlogPostsQueue
 
 -- blog posts draft
 
-instance QueryParam 'QPostsDraft APIKey;
 instance QueryInfo  'QPostsDraft where
   type QueryResult  'QPostsDraft = PostList
   getMethod = const QGet
 
 getBlogPostsDraft :: MonadAuth c m => BlogId -> m (Query 'QPostsDraft m)
-getBlogPostsDraft (BlogId bid) = liftAddAuth $ addAPIKey $ mkQuery $ "blog/" ++ bid ++ "/posts/draft"
+getBlogPostsDraft (BlogId bid) = liftAddAuth $ mkQuery $ "blog/" ++ bid ++ "/posts/draft"
 
 getPostsDraft :: (MonadAuth c m, HasBlogId c) => m (Query 'QPostsDraft m)
 getPostsDraft = asks getBlogId >>= getBlogPostsDraft
@@ -297,16 +291,17 @@ mkQuery s = return resultQuery
                       QGet  -> N.methodGet
                       QPost -> N.methodPost
 
-addAPIKey :: (MonadReader c m, HasAPIKey c, QueryParam q APIKey) => m (Query q m) -> m (Query q m)
-addAPIKey q = asks getAPIKey >>= (q &=)
-
 liftMaybeAddAuth :: MonadMaybeAuth c m => m (Query q m) -> m (Query q m)
 liftMaybeAddAuth query = do
   q <- query
+  APIKey k <- asks getAPIKey
   ma <- asks maybeGetAuthCred
   case ma of
-    Nothing -> return q
+    Nothing -> return $ q { sign = addAPIKey k }
     Just a  -> return $ q { sign = signOAuth a }
+  where addAPIKey k q = return $ q { N.queryString = append (N.queryString q) k }
+        append "" x = B.concat [    "api_key=", x]
+        append  s x = B.concat [s, "&api_key=", x]
 
 liftAddAuth :: MonadAuth c m => m (Query q m) -> m (Query q m)
 liftAddAuth query = do
