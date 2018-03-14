@@ -97,7 +97,13 @@ test-suite sleep-test
                        -O2
                        -threaded -rtsopts -with-rtsopts=-N -fhpc
   default-language:    Haskell2010
-  other-modules:       Web.Sleep.Tumblr.Error,
+  other-modules:       Web.Sleep.Common.Misc,
+                       Web.Sleep.Common.Network,
+                       Web.Sleep.Tumblr.Auth,
+                       Web.Sleep.Tumblr.Data,
+                       Web.Sleep.Tumblr.Error,
+                       Web.Sleep.Tumblr.Query,
+                       Web.Sleep.Tumblr.QueryTest,
                        Web.Sleep.Tumblr.Response,
                        Web.Sleep.Tumblr.ResponseTest
   build-depends:       base >= 4.7 && < 5, sleep,
