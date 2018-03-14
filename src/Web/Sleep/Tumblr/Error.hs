@@ -15,7 +15,7 @@ import           Text.Printf
 
 data Error = ServerError { errorCode :: Int, errorMsg :: String }
            | ClientError { errorCode :: Int, errorMsg :: String }
-           deriving (Typeable)
+           deriving (Typeable, Eq)
 
 
 
