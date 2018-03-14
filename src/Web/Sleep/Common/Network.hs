@@ -2,6 +2,7 @@
 {-# LANGUAGE DefaultSignatures     #-}
 {-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE OverloadedStrings     #-}
 {-# LANGUAGE TypeFamilies          #-}
 
 {-
@@ -17,6 +18,8 @@ Network related helper types and functions.
 module Web.Sleep.Common.Network (
   QMethod(..),
   ToRequest(..),
+  appendParam,
+  appendParams,
   HasNetwork(..),
   MonadNetwork,
   defaultManager,
@@ -29,7 +32,9 @@ module Web.Sleep.Common.Network (
 
 import           Control.Monad.Cont
 import           Control.Monad.Reader
-import           Data.ByteString.Lazy
+import qualified Data.ByteString         as EB
+import qualified Data.ByteString.Lazy    as LB
+import           Data.List               (foldl')
 import qualified Network.HTTP.Client     as N
 import qualified Network.HTTP.Client.TLS as N
 
@@ -45,11 +50,22 @@ class Monad m => ToRequest a m where
 
 
 
+-- query string helpers
+
+appendParam :: (EB.ByteString, EB.ByteString) -> N.Request -> N.Request
+appendParam p req = req { N.queryString = append p $ N.queryString req }
+  where append (name, val) "" = EB.concat [         name, "=", val]
+        append (name, val) qs = EB.concat [qs, "&", name, "=", val]
+
+appendParams :: [(EB.ByteString, EB.ByteString)] -> N.Request -> N.Request
+appendParams = flip $ foldl' $ flip appendParam
+
+
 -- network monad
 
 class HasNetwork c m where
-  send :: c -> N.Request -> m ByteString
-  default send :: (MonadIO m, N.HasHttpManager c) => c -> N.Request -> m ByteString
+  send :: c -> N.Request -> m LB.ByteString
+  default send :: (MonadIO m, N.HasHttpManager c) => c -> N.Request -> m LB.ByteString
   send = defaultSend
 
 type MonadNetwork c m = (MonadReader c m, HasNetwork c m)
@@ -61,5 +77,5 @@ type MonadNetwork c m = (MonadReader c m, HasNetwork c m)
 defaultManager :: MonadIO m => m N.Manager
 defaultManager = liftIO $ N.newManager N.tlsManagerSettings
 
-defaultSend :: (MonadIO m, N.HasHttpManager c) => c -> N.Request -> m ByteString
+defaultSend :: (MonadIO m, N.HasHttpManager c) => c -> N.Request -> m LB.ByteString
 defaultSend c r = liftIO $ fmap N.responseBody $ N.httpLbs r $ N.getHttpManager c

@@ -1,4 +1,3 @@
-{-# LANGUAGE DefaultSignatures     #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 
 
@@ -37,6 +36,7 @@ import qualified Network.HTTP.Client          as N
 import qualified Web.Authenticate.OAuth       as OA
 
 import           Web.Sleep.Common.Misc
+import           Web.Sleep.Common.Network
 
 
 
@@ -54,12 +54,12 @@ type AuthCred   = (OAuth, Credential)
 
 class Monad m => MonadSign m where
   signOAuth :: AuthCred -> N.Request -> m N.Request
-  default signOAuth :: MonadIO m => AuthCred -> N.Request -> m N.Request
-  signOAuth = liftIO ... uncurry OA.signOAuth
 
-instance MonadSign IO
+instance MonadSign IO where
+  signOAuth = uncurry OA.signOAuth
+
 instance MonadSign Identity where
-  signOAuth _ = return
+  signOAuth (_, OA.Credential cred) = return . appendParams cred
 
 instance (Monoid w, MonadSign m) => MonadSign (RWST r w s m) where signOAuth = lift ... signOAuth
 instance (Monoid w, MonadSign m) => MonadSign (WriterT w m)  where signOAuth = lift ... signOAuth

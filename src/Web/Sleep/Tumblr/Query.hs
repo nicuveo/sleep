@@ -74,7 +74,7 @@ module Web.Sleep.Tumblr.Query (
 -- imports
 
 import           Control.Monad.Reader
-import qualified Data.ByteString           as B (ByteString, concat)
+import qualified Data.ByteString           as B (ByteString)
 import qualified Data.ByteString.Char8     as B
 import qualified Data.Map.Strict           as M
 import           Data.String
@@ -299,9 +299,7 @@ liftMaybeAddAuth query = do
   case ma of
     Nothing -> return $ q { sign = addAPIKey k }
     Just a  -> return $ q { sign = signOAuth a }
-  where addAPIKey k q = return $ q { N.queryString = append (N.queryString q) k }
-        append "" x = B.concat [    "api_key=", x]
-        append  s x = B.concat [s, "&api_key=", x]
+  where addAPIKey k = return . appendParam ("api_key", k)
 
 liftAddAuth :: MonadAuth c m => m (Query q m) -> m (Query q m)
 liftAddAuth query = do
