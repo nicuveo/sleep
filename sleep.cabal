@@ -101,6 +101,7 @@ test-suite sleep-test
                        Web.Sleep.Common.Network,
                        Web.Sleep.Tumblr.Auth,
                        Web.Sleep.Tumblr.Data,
+                       Web.Sleep.Tumblr.DataTest,
                        Web.Sleep.Tumblr.Error,
                        Web.Sleep.Tumblr.Query,
                        Web.Sleep.Tumblr.QueryTest,
@@ -119,6 +120,7 @@ test-suite sleep-test
                        ixset,
                        mtl,
                        network-uri,
+                       QuickCheck,
                        resourcet,
                        safe-exceptions,
                        text,
@@ -127,6 +129,7 @@ test-suite sleep-test
                        url,
                        tasty,
                        tasty-hunit,
+                       tasty-quickcheck,
                        vector
 
 source-repository head
