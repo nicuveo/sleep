@@ -60,13 +60,13 @@ type Tag = String
 
 data PostFormat = HTMLPost
                 | MarkdownPost
-                deriving (Show, Eq)
+                deriving (Show, Eq, Enum, Bounded)
 
 data PostState = PrivatePost
                | DraftPost
                | QueuedPost
                | PublishedPost
-               deriving (Show, Eq)
+               deriving (Show, Eq, Enum, Bounded)
 
 data PostType = AnswerType
               | AudioType
@@ -76,7 +76,7 @@ data PostType = AnswerType
               | QuoteType
               | TextType
               | VideoType
-              deriving Eq
+              deriving (Eq, Enum, Bounded)
 
 data DialogueEntry = DialogueEntry { entryName   :: String
                                    , entryLabel  :: String
