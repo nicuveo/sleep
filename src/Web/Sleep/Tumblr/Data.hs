@@ -25,7 +25,7 @@ module Web.Sleep.Tumblr.Data (
   postBlogName,
   postBookmarklet,
   postDate,
-  postFornat,
+  postFormat,
   postId,
   postLiked,
   postMobile,
@@ -112,7 +112,7 @@ data PostBase = PostBase { pId          :: Int
                          , pBlogName    :: String
                          , pBookmarklet :: Bool
                          , pDate        :: UTCTime
-                         , pFornat      :: PostFormat
+                         , pFormat      :: PostFormat
                          , pLiked       :: Maybe Bool
                          , pMobile      :: Bool
                          , pNoteCount   :: Int
@@ -206,8 +206,8 @@ postBookmarklet = pBookmarklet . postBase
 postDate :: Post -> UTCTime
 postDate = pDate . postBase
 
-postFornat :: Post -> PostFormat
-postFornat = pFornat . postBase
+postFormat :: Post -> PostFormat
+postFormat = pFormat . postBase
 
 postLiked :: Post -> Maybe Bool
 postLiked = pLiked . postBase
