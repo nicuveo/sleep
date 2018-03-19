@@ -43,6 +43,7 @@ module Web.Sleep.Tumblr.Data (
 
 -- imports
 
+import           Control.Monad         (join)
 import           Data.Aeson
 import           Data.Aeson.Types
 import           Data.Text             as T
@@ -251,19 +252,45 @@ parsePostBase :: Object -> Parser PostBase
 parsePostBase o = do
   theId       <- o .: "id"
   theBlogName <- o .: "blog_name"
-  bookmarklet  <- o .:? "bookmarklet" .!= False
-  date         <- fromTimestamp <$> o .: "timestamp"
-  fornat       <- o .: "format"
-  liked        <- o .:? "liked"
-  mobile       <- o .:? "mobile" .!= False
-  noteCount    <- o .: "note_count"
-  reblogKey    <- o .: "reblog_key"
-  sourceTitle  <- o .:? "source_title"
-  sourceURL    <- ifPresent parseURL =<< o .:? "source_url"
-  state        <- o .: "state"
-  tags         <- o .: "tags"
-  theURL         <- parseURL =<< o .: "post_url"
-  return $ PostBase theId theBlogName bookmarklet date fornat liked mobile noteCount reblogKey sourceTitle sourceURL state tags theURL
+  bookmarklet <- o .:? "bookmarklet" .!= False
+  date        <- fromTimestamp <$> o .: "timestamp"
+  format      <- o .: "format"
+  liked       <- o .:? "liked"
+  mobile      <- o .:? "mobile" .!= False
+  noteCount   <- o .: "note_count"
+  reblogKey   <- o .: "reblog_key"
+  sourceTitle <- o .:? "source_title"
+  sourceURL   <- ifPresent parseURL =<< o .:? "source_url"
+  state       <- o .: "state"
+  tags        <- o .: "tags"
+  theURL      <- parseURL =<< o .: "post_url"
+  return $ PostBase theId theBlogName bookmarklet date format liked mobile noteCount reblogKey sourceTitle sourceURL state tags theURL
+
+postBaseToObject :: Post -> [Pair]
+postBaseToObject p = join [ [ "id"             .= pId pb
+                            , "blog_name"      .= pBlogName pb
+                            , "bookmarklet"    .= pBookmarklet pb
+                            , "timestamp"      .= toTimestamp (pDate pb)
+                            , "format"         .= pFormat pb
+                            , "mobile"         .= pMobile pb
+                            , "note_count"     .= pNoteCount pb
+                            , "reblog_key"     .= pReblogKey pb
+                            , "state"          .= pState pb
+                            , "tags"           .= pTags pb
+                            , "type"           .= postType p
+                            , "post_url"       .= exportURL (pURL pb)
+                            ]
+                          , [ "liked"          .= liked
+                            | Just liked       <- [pLiked pb]
+                            ]
+                          , [ "source_title"   .= sourceTitle
+                            | Just sourceTitle <- [pSourceTitle pb]
+                            ]
+                          , [ "source_url"     .= exportURL sourceURL
+                            | Just sourceURL   <- [pSourceURL pb]
+                            ]
+                          ]
+  where pb = postBase p
 
 
 
@@ -285,6 +312,10 @@ instance FromJSON PostFormat where
           parseFormat "markdown" = return MarkdownPost
           parseFormat s          = fail $ T.unpack s ++ " is not a valid post format"
 
+instance ToJSON PostFormat where
+  toJSON HTMLPost     = "html"
+  toJSON MarkdownPost = "markdown"
+
 instance FromJSON PostState where
   parseJSON = withText "post state" parseState
     where parseState "private"   = return PrivatePost
@@ -292,6 +323,12 @@ instance FromJSON PostState where
           parseState "queued"    = return QueuedPost
           parseState "published" = return PublishedPost
           parseState s           = fail $ T.unpack s ++ " is not a valid post state"
+
+instance ToJSON PostState where
+  toJSON PrivatePost   = "private"
+  toJSON DraftPost     = "draft"
+  toJSON QueuedPost    = "queued"
+  toJSON PublishedPost = "published"
 
 instance FromJSON PostType where
   parseJSON = withText "post type" parseType
@@ -305,12 +342,29 @@ instance FromJSON PostType where
           parseType "video"  = return VideoType
           parseType s        = fail $ T.unpack s ++ " is not a valid post type"
 
+instance ToJSON PostType where
+  toJSON AnswerType = "answer"
+  toJSON AudioType  = "audio"
+  toJSON ChatType   = "chat"
+  toJSON LinkType   = "link"
+  toJSON PhotoType  = "photo"
+  toJSON QuoteType  = "quote"
+  toJSON TextType   = "text"
+  toJSON VideoType  = "video"
+
 instance FromJSON DialogueEntry where
   parseJSON = withObject "dialog entry" $ \o -> do
     name   <- o .: "name"
     label  <- o .: "label"
     phrase <- o .: "phrase"
     return $ DialogueEntry name label phrase
+
+instance ToJSON DialogueEntry where
+  toJSON (DialogueEntry name label phrase) =
+    object [ "name"   .= name
+           , "label"  .= label
+           , "phrase" .= phrase
+           ]
 
 instance FromJSON PhotoSize where
   parseJSON = withObject "photo size" $ \o -> do
@@ -319,6 +373,13 @@ instance FromJSON PhotoSize where
     url    <- parseURL =<< o .: "url"
     return $ PhotoSize width height url
 
+instance ToJSON PhotoSize where
+  toJSON (PhotoSize width height url) =
+    object [ "width"  .= width
+           , "height" .= height
+           , "url"    .= exportURL url
+           ]
+
 instance FromJSON Photo where
   parseJSON = withObject "photo" $ \o -> do
     caption  <- o .:? "caption"
@@ -326,11 +387,24 @@ instance FromJSON Photo where
     alt      <- o .: "alt_sizes"
     return $ Photo caption original alt
 
+instance ToJSON Photo where
+  toJSON (Photo mcaption original alt) =
+    object $ [ "original_size" .= original
+             , "alt_sizes"     .= alt
+             ] ++ [ "caption"  .= capt
+                  | Just capt <- [mcaption]
+                  ]
+
 instance FromJSON Video where
   parseJSON = withObject "video" $ \o -> do
     width <- o .: "width"
     code  <- o .: "embed_code"
     return $ Video width code
+
+instance ToJSON Video where
+  toJSON (Video width code) = object [ "width"      .= width
+                                     , "embed_code" .= code
+                                     ]
 
 instance FromJSON Blog where
   parseJSON = withObject "blog" $ \o -> do
@@ -345,6 +419,22 @@ instance FromJSON Blog where
     askAnon <- b .:? "ask_anon" .!= False
     blocked <- b .:? "is_blocked_from_primary" .!= False
     return $ Blog title name desc posts updated ask askAnon blocked likes
+
+instance ToJSON Blog where
+  toJSON b = object
+    [ "blog" .= object (
+        [ "title"                   .= blogTitle b
+        , "name"                    .= blogName b
+        , "description"             .= blogDescription b
+        , "posts"                   .= blogPosts b
+        , "updated"                 .= toTimestamp (blogUpdated b)
+        , "ask"                     .= blogAsk b
+        , "ask_anon"                .= blogAskAnon b
+        , "is_blocked_from_primary" .= blogBlocked b
+        ] ++ [ "likes"              .= likes
+             | Just likes <- [blogLikes b]
+             ])
+    ]
 
 instance FromJSON PostBase where
   parseJSON = withObject "post base" parsePostBase
@@ -409,10 +499,69 @@ instance FromJSON Post where
             player      <- o .: "player"
             return $ VideoPost base caption player
 
+instance ToJSON Post where
+  toJSON p = object $ postBaseToObject p ++ details p
+    where details (AnswerPost _ answer askingName askingURL question) =
+            [ "answer"      .= answer
+            , "asking_name" .= askingName
+            , "asking_url"  .= exportURL askingURL
+            , "question"    .= question
+            ]
+          details (AudioPost _ mAlbum mAlbumArt mArtist caption player plays mTitle mTrackName mTrackNumber mYear) =
+            join [ [ "caption"          .= caption
+                   , "player"           .= player
+                   , "plays"            .= plays
+                   ]
+                 , [ "id3_album"        .= album              | Just album        <- [mAlbum]       ]
+                 , [ "id3_album_art"    .= exportURL albumArt | Just albumArt     <- [mAlbumArt]    ]
+                 , [ "id3_artist"       .= artist             | Just artist       <- [mArtist]      ]
+                 , [ "id3_title"        .= title              | Just title        <- [mTitle]       ]
+                 , [ "id3_track_name"   .= track_name         | Just track_name   <- [mTrackName]   ]
+                 , [ "id3_track_number" .= track_number       | Just track_number <- [mTrackNumber] ]
+                 , [ "id3_year"         .= year               | Just year         <- [mYear]        ]
+                 ]
+          details (ChatPost _ dialogue mTitle) =
+            join [ [ "dialogue" .= dialogue                          ]
+                 , [ "title"    .= title    | Just title <- [mTitle] ]
+                 ]
+          details (LinkPost _ author description excerpt link photos publisher mTitle) =
+            join [ [ "author"      .= author
+                   , "description" .= description
+                   , "excerpt"     .= excerpt
+                   , "url"         .= exportURL link
+                   , "photos"      .= photos
+                   , "publisher"   .= publisher
+                   ]
+                 , [ "title"       .= title | Just title <- [mTitle] ]
+                 ]
+          details (PhotoPost _ caption photos) =
+            [ "caption" .= caption
+            , "photos"  .= photos
+            ]
+          details (QuotePost _ source text) =
+            [ "source" .= source
+            , "text"   .= text
+            ]
+          details (TextPost _ body mTitle) =
+            join [ [ "body"  .= body                           ]
+                 , [ "title" .= title | Just title <- [mTitle] ]
+                 ]
+          details (VideoPost _ caption player) =
+            [ "caption" .= caption
+            , "player"  .= player
+            ]
+
+
 instance FromJSON BlogList where
   parseJSON = withObject "blog list" $ \o ->
     BlogList <$> o .: "blogs"
 
+instance ToJSON BlogList where
+  toJSON (BlogList blogs) = object [ "blogs" .= blogs ]
+
 instance FromJSON PostList where
   parseJSON = withObject "post list" $ \o ->
     PostList <$> o .: "posts"
+
+instance ToJSON PostList where
+  toJSON (PostList posts) = object [ "posts" .= posts ]
