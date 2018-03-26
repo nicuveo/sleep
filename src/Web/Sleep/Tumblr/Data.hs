@@ -69,6 +69,7 @@ type Tag = String
 
 data PNGImage = ImageRawData LB.ByteString
               | ImageURL     URL
+              deriving (Show, Eq)
 
 data PostFormat = HTMLPost
                 | MarkdownPost
