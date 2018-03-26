@@ -13,16 +13,24 @@ module Web.Sleep.Tumblr.DataTest (tests) where
 
 -- imports
 
-import           Data.Aeson
+import           Data.Aeson                   hiding (decode)
+import qualified Data.ByteString              as SB
+import qualified Data.ByteString.Lazy         as LB
 import           Data.Maybe
-import qualified Data.Time.Clock       as T
-import qualified Network.URL           as N
-import           Test.QuickCheck
+import           Data.String
+import qualified Data.Time.Clock              as T
+import qualified Network.HTTP.Client          as N
+import qualified Network.HTTP.Client.Internal as N
+import qualified Network.HTTP.Types.Status    as N
+import qualified Network.HTTP.Types.Version   as N
+import qualified Network.URL                  as N
 import           Test.Tasty
+import           Test.Tasty.HUnit
 import           Test.Tasty.QuickCheck
 
 import           Web.Sleep.Common.Misc
 import           Web.Sleep.Tumblr.Data
+import           Web.Sleep.Tumblr.Network
 
 
 
@@ -93,8 +101,34 @@ instance Arbitrary BlogList where
 instance Arbitrary PostList where
   arbitrary = PostList <$> a `suchThat` (\l -> length l < 5)
 
-checkStability :: (Eq a, ToJSON a, FromJSON a) => a -> Bool
-checkStability x = Right x == eitherDecode (encode x)
+checkStability :: (Eq a, ToJSON a, Decode a) => a -> Bool
+checkStability x = Right x == decode ( makeMockResponse "text/json" $
+                                       makeMockEnvelope $
+                                       encode x
+                                     )
+
+makeMockEnvelope :: LB.ByteString -> LB.ByteString
+makeMockEnvelope x = LB.concat [ "\
+                                \\n{\
+                                \\n  \"meta\": {\
+                                \\n    \"status\": 200,\
+                                \\n    \"msg\": \"OK\"\
+                                \\n  },\
+                                \\n  \"response\": "
+                              , x
+                              , "\
+                                \\n}\
+                                \\n"
+                              ]
+
+makeMockResponse :: SB.ByteString -> LB.ByteString -> N.Response LB.ByteString
+makeMockResponse ct body = N.Response { N.responseStatus    = N.mkStatus 200 "OK"
+                                      , N.responseHeaders   = [("Content-Type", ct)]
+                                      , N.responseBody      = body
+                                      , N.responseVersion   = N.http11
+                                      , N.responseCookieJar = N.CJ []
+                                      , N.responseClose'    = undefined
+                                      }
 
 
 
@@ -113,6 +147,8 @@ tests = testGroup "Web.Sleep.Tumblr.Data" list
                , testPost
                , testBlogList
                , testPostList
+               , testPNGRawImage
+               , testPNGImageURL
                ]
 
 testPostFormat, testPostState, testPostType            :: TestTree
@@ -129,3 +165,20 @@ testBlog          = testProperty "stability of Blog"          $ \(x :: Blog)    
 testPost          = testProperty "stability of Post"          $ \(x :: Post)          -> checkStability x
 testBlogList      = testProperty "stability of BlogList"      $ \(x :: BlogList)      -> checkStability x
 testPostList      = testProperty "stability of PostList"      $ \(x :: PostList)      -> checkStability x
+
+testPNGImageURL :: TestTree
+testPNGImageURL = testCase "stability of PNGImage (url)" assertion
+  where url       = "http://static.tumblr.com/avatars/test.tumblr.com/512"
+        image     = ImageURL $ fromJust $ N.importURL url
+        assertion = Right image @=? decode ( makeMockResponse "text/json" $
+                                             makeMockEnvelope $
+                                             LB.concat [ "{ \"avatar_url\": \""
+                                                       , fromString url
+                                                       , "\" }"
+                                                       ])
+
+testPNGRawImage :: TestTree
+testPNGRawImage = testCase "stability of PNGImage (raw)" assertion
+  where rawData   = "PNG\NUL\NUL\NULrawdata"
+        image     = ImageRawData rawData
+        assertion = Right image @=? decode (makeMockResponse "image/png" rawData)

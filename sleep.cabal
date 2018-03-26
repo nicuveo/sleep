@@ -103,6 +103,7 @@ test-suite sleep-test
                        Web.Sleep.Tumblr.Data,
                        Web.Sleep.Tumblr.DataTest,
                        Web.Sleep.Tumblr.Error,
+                       Web.Sleep.Tumblr.Network,
                        Web.Sleep.Tumblr.Query,
                        Web.Sleep.Tumblr.QueryTest,
                        Web.Sleep.Tumblr.Response,
