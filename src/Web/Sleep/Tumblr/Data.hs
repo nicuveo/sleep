@@ -8,6 +8,7 @@ module Web.Sleep.Tumblr.Data (
   -- helper types
   HTML,
   Tag,
+  PNGImage(..),
   -- data types
   PostFormat(..),
   PostState(..),
@@ -43,14 +44,21 @@ module Web.Sleep.Tumblr.Data (
 
 -- imports
 
-import           Control.Monad         (join)
+import           Control.Monad             (join)
 import           Data.Aeson
 import           Data.Aeson.Types
-import           Data.Text             as T
+import qualified Data.ByteString.Char8     as SB (unpack)
+import qualified Data.ByteString.Lazy      as LB
+import           Data.Text                 as T
 import           Data.Time.Clock
+import qualified Network.HTTP.Client       as N
+import qualified Network.HTTP.Types.Header as N
 import           Network.URL
 
 import           Web.Sleep.Common.Misc
+import           Web.Sleep.Tumblr.Error
+import           Web.Sleep.Tumblr.Network
+import           Web.Sleep.Tumblr.Response
 
 
 
@@ -58,6 +66,9 @@ import           Web.Sleep.Common.Misc
 
 type HTML = String
 type Tag = String
+
+data PNGImage = ImageRawData LB.ByteString
+              | ImageURL     URL
 
 data PostFormat = HTMLPost
                 | MarkdownPost
@@ -296,15 +307,19 @@ postBaseToObject p = join [ [ "id"             .= pId pb
 
 -- instances
 
-instance Show PostType where
-  show AnswerType = "answer"
-  show AudioType  = "audio"
-  show ChatType   = "chat"
-  show LinkType   = "link"
-  show PhotoType  = "photo"
-  show QuoteType  = "quote"
-  show TextType   = "text"
-  show VideoType  = "video"
+instance FromJSON PNGImage where
+  parseJSON = withObject "avatar" $ \o -> fmap ImageURL $ parseURL =<< o .: "avatar_url"
+
+instance ToJSON PNGImage where
+  toJSON _ = error "[not implemented yet]"
+
+instance Decode PNGImage where
+  decode r = case lookup N.hContentType $ N.responseHeaders r of
+               Just "image/png" -> Right $ ImageRawData $ N.responseBody r
+               Just "text/json" -> getResponse $ N.responseBody r
+               Just t           -> Left $ ClientError 2 $ "expected image type: " ++ SB.unpack t -- FIXME
+               Nothing          -> Left $ ClientError 3 "missing content type header"            -- FIXME
+
 
 instance FromJSON PostFormat where
   parseJSON = withText "post format" parseFormat
@@ -315,6 +330,9 @@ instance FromJSON PostFormat where
 instance ToJSON PostFormat where
   toJSON HTMLPost     = "html"
   toJSON MarkdownPost = "markdown"
+
+instance Decode PostFormat
+
 
 instance FromJSON PostState where
   parseJSON = withText "post state" parseState
@@ -329,6 +347,19 @@ instance ToJSON PostState where
   toJSON DraftPost     = "draft"
   toJSON QueuedPost    = "queued"
   toJSON PublishedPost = "published"
+
+instance Decode PostState
+
+
+instance Show PostType where
+  show AnswerType = "answer"
+  show AudioType  = "audio"
+  show ChatType   = "chat"
+  show LinkType   = "link"
+  show PhotoType  = "photo"
+  show QuoteType  = "quote"
+  show TextType   = "text"
+  show VideoType  = "video"
 
 instance FromJSON PostType where
   parseJSON = withText "post type" parseType
@@ -352,6 +383,9 @@ instance ToJSON PostType where
   toJSON TextType   = "text"
   toJSON VideoType  = "video"
 
+instance Decode PostType
+
+
 instance FromJSON DialogueEntry where
   parseJSON = withObject "dialog entry" $ \o -> do
     name   <- o .: "name"
@@ -366,6 +400,9 @@ instance ToJSON DialogueEntry where
            , "phrase" .= phrase
            ]
 
+instance Decode DialogueEntry
+
+
 instance FromJSON PhotoSize where
   parseJSON = withObject "photo size" $ \o -> do
     width  <- o .: "width"
@@ -379,6 +416,9 @@ instance ToJSON PhotoSize where
            , "height" .= height
            , "url"    .= exportURL url
            ]
+
+instance Decode PhotoSize
+
 
 instance FromJSON Photo where
   parseJSON = withObject "photo" $ \o -> do
@@ -395,6 +435,9 @@ instance ToJSON Photo where
                   | Just capt <- [mcaption]
                   ]
 
+instance Decode Photo
+
+
 instance FromJSON Video where
   parseJSON = withObject "video" $ \o -> do
     width <- o .: "width"
@@ -405,6 +448,9 @@ instance ToJSON Video where
   toJSON (Video width code) = object [ "width"      .= width
                                      , "embed_code" .= code
                                      ]
+
+instance Decode Video
+
 
 instance FromJSON Blog where
   parseJSON = withObject "blog" $ \o -> do
@@ -435,6 +481,9 @@ instance ToJSON Blog where
              | Just likes <- [blogLikes b]
              ])
     ]
+
+instance Decode Blog
+
 
 instance FromJSON PostBase where
   parseJSON = withObject "post base" parsePostBase
@@ -551,6 +600,8 @@ instance ToJSON Post where
             , "player"  .= player
             ]
 
+instance Decode Post
+
 
 instance FromJSON BlogList where
   parseJSON = withObject "blog list" $ \o ->
@@ -559,9 +610,14 @@ instance FromJSON BlogList where
 instance ToJSON BlogList where
   toJSON (BlogList blogs) = object [ "blogs" .= blogs ]
 
+instance Decode BlogList
+
+
 instance FromJSON PostList where
   parseJSON = withObject "post list" $ \o ->
     PostList <$> o .: "posts"
 
 instance ToJSON PostList where
   toJSON (PostList posts) = object [ "posts" .= posts ]
+
+instance Decode PostList

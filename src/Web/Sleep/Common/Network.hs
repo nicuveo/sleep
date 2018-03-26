@@ -61,11 +61,12 @@ appendParams :: [(EB.ByteString, EB.ByteString)] -> N.Request -> N.Request
 appendParams = flip $ foldl' $ flip appendParam
 
 
+
 -- network monad
 
 class HasNetwork c m where
-  send :: c -> N.Request -> m LB.ByteString
-  default send :: (MonadIO m, N.HasHttpManager c) => c -> N.Request -> m LB.ByteString
+  send :: c -> N.Request -> m (N.Response LB.ByteString)
+  default send :: (MonadIO m, N.HasHttpManager c) => c -> N.Request -> m (N.Response LB.ByteString)
   send = defaultSend
 
 type MonadNetwork c m = (MonadReader c m, HasNetwork c m)
@@ -77,5 +78,5 @@ type MonadNetwork c m = (MonadReader c m, HasNetwork c m)
 defaultManager :: MonadIO m => m N.Manager
 defaultManager = liftIO $ N.newManager N.tlsManagerSettings
 
-defaultSend :: (MonadIO m, N.HasHttpManager c) => c -> N.Request -> m LB.ByteString
-defaultSend c r = liftIO $ fmap N.responseBody $ N.httpLbs r $ N.getHttpManager c
+defaultSend :: (MonadIO m, N.HasHttpManager c) => c -> N.Request -> m (N.Response LB.ByteString)
+defaultSend c r = liftIO $ N.httpLbs r $ N.getHttpManager c

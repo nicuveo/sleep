@@ -11,15 +11,13 @@
 module Web.Sleep.Tumblr.Response (
   EnvelopeFromJSON,
   getResponse,
-  getResponseT,
-  getResponseE) where
+  ) where
 
 
 
 -- imports
 
 import           Control.Arrow
-import           Control.Exception.Safe
 import           Control.Monad.Except
 import           Data.Aeson
 import           Data.Aeson.Types
@@ -34,12 +32,6 @@ import           Web.Sleep.Tumblr.Error
 
 getResponse :: (EnvelopeFromJSON a) => RawData -> Either Error a
 getResponse = join . fmap getRes . left _jsonError . eitherDecode'
-
-getResponseT :: (EnvelopeFromJSON a, MonadThrow m) => RawData -> m a
-getResponseT = either throw return . getResponse
-
-getResponseE :: (EnvelopeFromJSON a, MonadError Error m) => RawData -> m a
-getResponseE = either throwError return . getResponse
 
 
 
