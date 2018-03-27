@@ -16,7 +16,6 @@ import           Data.Typeable
 import           GHC.Generics
 import           Network.HTTP.Client          hiding (withResponse)
 import           Network.HTTP.Client.Conduit
-import           Network.URL
 import           System.Directory
 import           System.Environment
 import           System.Exit
@@ -126,7 +125,7 @@ downloadPhotos config o = do
   when (remaining > 0) $ liftIO $ logInfo $ printf "%d file(s) remaining" $ length recentEnough
   forM_ [ ( pId $ postBase post
           , index
-          , exportURL $ photoURL $ photoOriginal photo
+          , show $ photoURI $ photoOriginal photo
           )
         | post  <- reverse recentEnough
         , (index, photo) <- zip [1..] $ postPhotos post

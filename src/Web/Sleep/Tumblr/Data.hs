@@ -33,11 +33,11 @@ module Web.Sleep.Tumblr.Data (
   postNoteCount,
   postReblogKey,
   postSourceTitle,
-  postSourceURL,
+  postSourceURI,
   postState,
   postTags,
   postType,
-  postURL,
+  postURI,
   ) where
 
 
@@ -53,7 +53,7 @@ import           Data.Text                 as T
 import           Data.Time.Clock
 import qualified Network.HTTP.Client       as N
 import qualified Network.HTTP.Types.Header as N
-import           Network.URL
+import qualified Network.URI               as N
 
 import           Web.Sleep.Common.Misc
 import           Web.Sleep.Tumblr.Error
@@ -67,7 +67,7 @@ type HTML = String
 type Tag = String
 
 data PNGImage = ImageRawData LB.ByteString
-              | ImageURL     URL
+              | ImageURI     N.URI
               deriving (Show, Eq)
 
 data PostFormat = HTMLPost
@@ -97,7 +97,7 @@ data DialogueEntry = DialogueEntry { entryName   :: String
 
 data PhotoSize = PhotoSize { photoWidth  :: Int
                            , photoHeight :: Int
-                           , photoURL    :: URL
+                           , photoURI    :: N.URI
                            } deriving (Show, Eq)
 
 data Photo = Photo { photoCaption  :: Maybe String
@@ -130,22 +130,22 @@ data PostBase = PostBase { pId          :: Int
                          , pNoteCount   :: Int
                          , pReblogKey   :: String
                          , pSourceTitle :: Maybe String
-                         , pSourceURL   :: Maybe URL
+                         , pSourceURI   :: Maybe N.URI
                          , pState       :: PostState
                          , pTags        :: [Tag]
-                         , pURL         :: URL
+                         , pURI         :: N.URI
                          } deriving (Show, Eq)
 
 
 data Post = AnswerPost { postBase       :: PostBase
                        , postAnswer     :: String
                        , postAskingName :: String
-                       , postAskingURL  :: URL
+                       , postAskingURI  :: N.URI
                        , postQuestion   :: String
                        }
           | AudioPost  { postBase        :: PostBase
                        , postAlbum       :: Maybe String
-                       , postAlbumArt    :: Maybe URL
+                       , postAlbumArt    :: Maybe N.URI
                        , postArtist      :: Maybe String
                        , postCaption     :: String
                        , postPlayer      :: HTML
@@ -163,7 +163,7 @@ data Post = AnswerPost { postBase       :: PostBase
                        , postAuthor      :: String
                        , postDescription :: String
                        , postExcerpt     :: String
-                       , postLink        :: URL
+                       , postLink        :: N.URI
                        , postPhotos      :: [Photo]
                        , postPublisher   :: String
                        , postTitle       :: Maybe String
@@ -236,8 +236,8 @@ postReblogKey = pReblogKey . postBase
 postSourceTitle :: Post -> Maybe String
 postSourceTitle = pSourceTitle . postBase
 
-postSourceURL :: Post -> Maybe URL
-postSourceURL = pSourceURL . postBase
+postSourceURI :: Post -> Maybe N.URI
+postSourceURI = pSourceURI . postBase
 
 postState :: Post -> PostState
 postState = pState . postBase
@@ -245,15 +245,15 @@ postState = pState . postBase
 postTags :: Post -> [Tag]
 postTags = pTags . postBase
 
-postURL :: Post -> URL
-postURL = pURL . postBase
+postURI :: Post -> N.URI
+postURI = pURI . postBase
 
 
 
 -- internal functions
 
-parseURL :: String -> Parser URL
-parseURL s = maybe (fail msg) return $ importURL s
+parseURI :: String -> Parser N.URI
+parseURI s = maybe (fail msg) return $ N.parseURI s
   where msg = s ++ " is not a valid url"
 
 ifPresent :: (a -> Parser b) -> Maybe a -> Parser (Maybe b)
@@ -271,11 +271,11 @@ parsePostBase o = do
   noteCount   <- o .: "note_count"
   reblogKey   <- o .: "reblog_key"
   sourceTitle <- o .:? "source_title"
-  sourceURL   <- ifPresent parseURL =<< o .:? "source_url"
+  sourceURI   <- ifPresent parseURI =<< o .:? "source_url"
   state       <- o .: "state"
   tags        <- o .: "tags"
-  theURL      <- parseURL =<< o .: "post_url"
-  return $ PostBase theId theBlogName bookmarklet date format liked mobile noteCount reblogKey sourceTitle sourceURL state tags theURL
+  theURI      <- parseURI =<< o .: "post_url"
+  return $ PostBase theId theBlogName bookmarklet date format liked mobile noteCount reblogKey sourceTitle sourceURI state tags theURI
 
 postBaseToObject :: Post -> [Pair]
 postBaseToObject p = join [ [ "id"             .= pId pb
@@ -289,7 +289,7 @@ postBaseToObject p = join [ [ "id"             .= pId pb
                             , "state"          .= pState pb
                             , "tags"           .= pTags pb
                             , "type"           .= postType p
-                            , "post_url"       .= exportURL (pURL pb)
+                            , "post_url"       .= show (pURI pb)
                             ]
                           , [ "liked"          .= liked
                             | Just liked       <- [pLiked pb]
@@ -297,8 +297,8 @@ postBaseToObject p = join [ [ "id"             .= pId pb
                           , [ "source_title"   .= sourceTitle
                             | Just sourceTitle <- [pSourceTitle pb]
                             ]
-                          , [ "source_url"     .= exportURL sourceURL
-                            | Just sourceURL   <- [pSourceURL pb]
+                          , [ "source_url"     .= show sourceURI
+                            | Just sourceURI   <- [pSourceURI pb]
                             ]
                           ]
   where pb = postBase p
@@ -308,7 +308,7 @@ postBaseToObject p = join [ [ "id"             .= pId pb
 -- instances
 
 instance FromJSON PNGImage where
-  parseJSON = withObject "avatar" $ \o -> fmap ImageURL $ parseURL =<< o .: "avatar_url"
+  parseJSON = withObject "avatar" $ \o -> fmap ImageURI $ parseURI =<< o .: "avatar_url"
 
 instance ToJSON PNGImage where
   toJSON _ = error "[not implemented yet]"
@@ -407,14 +407,14 @@ instance FromJSON PhotoSize where
   parseJSON = withObject "photo size" $ \o -> do
     width  <- o .: "width"
     height <- o .: "height"
-    url    <- parseURL =<< o .: "url"
+    url    <- parseURI =<< o .: "url"
     return $ PhotoSize width height url
 
 instance ToJSON PhotoSize where
   toJSON (PhotoSize width height url) =
     object [ "width"  .= width
            , "height" .= height
-           , "url"    .= exportURL url
+           , "url"    .= show url
            ]
 
 instance Decode PhotoSize
@@ -503,15 +503,15 @@ instance FromJSON Post where
     where parseAnswer base o = do
             answer      <- o .: "answer"
             askingName  <- o .: "asking_name"
-            askingURL   <- parseURL =<< o .: "asking_url"
+            askingURI   <- parseURI =<< o .: "asking_url"
             question    <- o .: "question"
-            return $ AnswerPost base answer askingName askingURL question
+            return $ AnswerPost base answer askingName askingURI question
           parseAudio base o = do
             caption     <- o .: "caption"
             player      <- o .: "player"
             plays       <- o .: "plays"
             album       <- o .:? "id3_album"
-            albumArt    <- ifPresent parseURL =<< o .:? "id3_album_art"
+            albumArt    <- ifPresent parseURI =<< o .:? "id3_album_art"
             artist      <- o .:? "id3_artist"
             title       <- o .:? "id3_title"
             trackName   <- o .:? "id3_track_name"
@@ -526,7 +526,7 @@ instance FromJSON Post where
             author      <- o .: "author"
             description <- o .: "description"
             excerpt     <- o .: "excerpt"
-            link        <- parseURL =<< o .: "url"
+            link        <- parseURI =<< o .: "url"
             photos      <- o .: "photos"
             publisher   <- o .: "publisher"
             title       <- o .:? "title"
@@ -550,10 +550,10 @@ instance FromJSON Post where
 
 instance ToJSON Post where
   toJSON p = object $ postBaseToObject p ++ details p
-    where details (AnswerPost _ answer askingName askingURL question) =
+    where details (AnswerPost _ answer askingName askingURI question) =
             [ "answer"      .= answer
             , "asking_name" .= askingName
-            , "asking_url"  .= exportURL askingURL
+            , "asking_url"  .= show askingURI
             , "question"    .= question
             ]
           details (AudioPost _ mAlbum mAlbumArt mArtist caption player plays mTitle mTrackName mTrackNumber mYear) =
@@ -561,13 +561,13 @@ instance ToJSON Post where
                    , "player"           .= player
                    , "plays"            .= plays
                    ]
-                 , [ "id3_album"        .= album              | Just album        <- [mAlbum]       ]
-                 , [ "id3_album_art"    .= exportURL albumArt | Just albumArt     <- [mAlbumArt]    ]
-                 , [ "id3_artist"       .= artist             | Just artist       <- [mArtist]      ]
-                 , [ "id3_title"        .= title              | Just title        <- [mTitle]       ]
-                 , [ "id3_track_name"   .= track_name         | Just track_name   <- [mTrackName]   ]
-                 , [ "id3_track_number" .= track_number       | Just track_number <- [mTrackNumber] ]
-                 , [ "id3_year"         .= year               | Just year         <- [mYear]        ]
+                 , [ "id3_album"        .= album         | Just album        <- [mAlbum]       ]
+                 , [ "id3_album_art"    .= show albumArt | Just albumArt     <- [mAlbumArt]    ]
+                 , [ "id3_artist"       .= artist        | Just artist       <- [mArtist]      ]
+                 , [ "id3_title"        .= title         | Just title        <- [mTitle]       ]
+                 , [ "id3_track_name"   .= track_name    | Just track_name   <- [mTrackName]   ]
+                 , [ "id3_track_number" .= track_number  | Just track_number <- [mTrackNumber] ]
+                 , [ "id3_year"         .= year          | Just year         <- [mYear]        ]
                  ]
           details (ChatPost _ dialogue mTitle) =
             join [ [ "dialogue" .= dialogue                          ]
@@ -577,7 +577,7 @@ instance ToJSON Post where
             join [ [ "author"      .= author
                    , "description" .= description
                    , "excerpt"     .= excerpt
-                   , "url"         .= exportURL link
+                   , "url"         .= show link
                    , "photos"      .= photos
                    , "publisher"   .= publisher
                    ]

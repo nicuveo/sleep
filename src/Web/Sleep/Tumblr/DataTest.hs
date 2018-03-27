@@ -23,7 +23,7 @@ import qualified Network.HTTP.Client          as N
 import qualified Network.HTTP.Client.Internal as N
 import qualified Network.HTTP.Types.Status    as N
 import qualified Network.HTTP.Types.Version   as N
-import qualified Network.URL                  as N
+import qualified Network.URI                  as N
 import           Test.Tasty
 import           Test.Tasty.HUnit
 import           Test.Tasty.QuickCheck
@@ -47,12 +47,12 @@ letters = _letters $ pure []
   where _letters s 0 = s
         _letters s n = _letters ((:) <$> letter <*> s) $ n-1
 
-instance Arbitrary N.URL where
+instance Arbitrary N.URI where
   arbitrary = do
     secure <- a
     host   <- listOf1 letter
     tld    <- letters 3
-    return $ fromJust $ N.importURL $ "http" ++ ['s'|secure] ++ "://" ++ host ++ "." ++ tld
+    return $ fromJust $ N.parseURI $ "http" ++ ['s'|secure] ++ "://" ++ host ++ "." ++ tld
 
 instance Arbitrary T.UTCTime where
   arbitrary = fromTimestamp <$> a
@@ -169,7 +169,7 @@ testPostList      = testProperty "stability of PostList"      $ \(x :: PostList)
 testPNGImageURL :: TestTree
 testPNGImageURL = testCase "stability of PNGImage (url)" assertion
   where url       = "http://static.tumblr.com/avatars/test.tumblr.com/512"
-        image     = ImageURL $ fromJust $ N.importURL url
+        image     = ImageURI $ fromJust $ N.parseURI url
         assertion = Right image @=? decode ( makeMockResponse "text/json" $
                                              makeMockEnvelope $
                                              LB.concat [ "{ \"avatar_url\": \""

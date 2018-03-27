@@ -52,7 +52,6 @@ library
                        text,
                        time,
                        transformers,
-                       url,
                        vector
 
 executable tumblr-photo-download
@@ -79,8 +78,7 @@ executable tumblr-photo-download
                        http-client,
                        http-conduit,
                        mtl,
-                       resourcet,
-                       url
+                       resourcet
 
 test-suite sleep-test
   type:                exitcode-stdio-1.0
@@ -127,7 +125,6 @@ test-suite sleep-test
                        text,
                        time,
                        transformers,
-                       url,
                        tasty,
                        tasty-hunit,
                        tasty-quickcheck,
