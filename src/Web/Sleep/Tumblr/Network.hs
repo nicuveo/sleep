@@ -7,6 +7,7 @@
 -- module
 
 module Web.Sleep.Tumblr.Network (
+  module Web.Sleep.Common.Network,
   call,
   callT,
   callE,

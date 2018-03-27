@@ -8,7 +8,6 @@ module Web.Sleep.Tumblr (
 
 -- imports
 
-import           Web.Sleep.Common.Network  as Web.Sleep.Tumblr.Export
 import           Web.Sleep.Tumblr.Auth     as Web.Sleep.Tumblr.Export
 import           Web.Sleep.Tumblr.Data     as Web.Sleep.Tumblr.Export
 import           Web.Sleep.Tumblr.Error    as Web.Sleep.Tumblr.Export

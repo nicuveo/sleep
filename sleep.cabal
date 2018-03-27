@@ -24,8 +24,6 @@ library
                        -O2
   default-language:    Haskell2010
   exposed-modules:     Web.Sleep,
-                       Web.Sleep.Common.Misc,
-                       Web.Sleep.Common.Network,
                        Web.Sleep.Tumblr,
                        Web.Sleep.Tumblr.Auth,
                        Web.Sleep.Tumblr.Data,
@@ -34,6 +32,8 @@ library
                        Web.Sleep.Tumblr.Query,
                        Web.Sleep.Tumblr.Response,
                        Web.Sleep.Tumblr.Simple
+  other-modules:       Web.Sleep.Common.Misc,
+                       Web.Sleep.Common.Network
   build-depends:       base >= 4.7 && < 5,
                        MissingH,
                        aeson,

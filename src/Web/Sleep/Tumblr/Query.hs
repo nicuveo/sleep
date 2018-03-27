@@ -92,9 +92,9 @@ import qualified Network.HTTP.Types.Method as N
 import qualified Network.URI               as N (URI)
 
 import           Web.Sleep.Common.Misc
-import           Web.Sleep.Common.Network
 import           Web.Sleep.Tumblr.Auth
 import           Web.Sleep.Tumblr.Data
+import           Web.Sleep.Tumblr.Network
 
 
 

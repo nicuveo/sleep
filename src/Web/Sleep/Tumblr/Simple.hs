@@ -27,13 +27,11 @@ module Web.Sleep.Tumblr.Simple (
 -- imports
 
 import           Control.Monad.Reader
-import           Data.ByteString.Char8    (pack)
-import qualified Network.HTTP.Client      as N
-import qualified Web.Authenticate.OAuth   as OA
+import           Data.ByteString.Char8  (pack)
+import qualified Network.HTTP.Client    as N
+import qualified Web.Authenticate.OAuth as OA
 
-import           Web.Sleep.Common.Network
-import           Web.Sleep.Tumblr.Auth
-import           Web.Sleep.Tumblr.Query
+import           Web.Sleep.Tumblr
 
 
 
