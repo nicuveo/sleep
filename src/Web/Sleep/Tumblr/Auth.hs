@@ -1,3 +1,5 @@
+{-# LANGUAGE DefaultSignatures     #-}
+{-# LANGUAGE GADTs                 #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 
 
@@ -14,6 +16,7 @@ module Web.Sleep.Tumblr.Auth (
   -- exported classes
   MonadSign(..),
   -- exported functions
+  liftSignOAuth,
   tumblrOAuth,
   ) where
 
@@ -54,6 +57,8 @@ type AuthCred   = (OAuth, Credential)
 
 class Monad m => MonadSign m where
   signOAuth :: AuthCred -> N.Request -> m N.Request
+  default signOAuth :: (MonadSign b, MonadTrans n, n b ~ m) => AuthCred -> N.Request -> m N.Request
+  signOAuth = defaultSignOAuth
 
 instance MonadSign IO where
   signOAuth = uncurry OA.signOAuth
@@ -61,19 +66,22 @@ instance MonadSign IO where
 instance MonadSign Identity where
   signOAuth (_, OA.Credential cred) = return . appendParams cred
 
-instance (Monoid w, MonadSign m) => MonadSign (RWST r w s m) where signOAuth = lift ... signOAuth
-instance (Monoid w, MonadSign m) => MonadSign (WriterT w m)  where signOAuth = lift ... signOAuth
-instance MonadSign m             => MonadSign (ContT r m)    where signOAuth = lift ... signOAuth
-instance MonadSign m             => MonadSign (ExceptT e m)  where signOAuth = lift ... signOAuth
-instance MonadSign m             => MonadSign (ListT m)      where signOAuth = lift ... signOAuth
-instance MonadSign m             => MonadSign (MaybeT m)     where signOAuth = lift ... signOAuth
-instance MonadSign m             => MonadSign (ReaderT r m)  where signOAuth = lift ... signOAuth
-instance MonadSign m             => MonadSign (StateT s m)   where signOAuth = lift ... signOAuth
-instance MonadSign m             => MonadSign (ResourceT m)  where signOAuth = lift ... signOAuth
+instance (Monoid w, MonadSign m) => MonadSign (RWST r w s m)
+instance (Monoid w, MonadSign m) => MonadSign (WriterT w m)
+instance MonadSign m             => MonadSign (ContT r m)
+instance MonadSign m             => MonadSign (ExceptT e m)
+instance MonadSign m             => MonadSign (ListT m)
+instance MonadSign m             => MonadSign (MaybeT m)
+instance MonadSign m             => MonadSign (ReaderT r m)
+instance MonadSign m             => MonadSign (StateT s m)
+instance MonadSign m             => MonadSign (ResourceT m)
 
 
 
 -- exported functions
+
+liftSignOAuth :: (MonadSign b, MonadTrans m) => AuthCred -> N.Request -> m b N.Request
+liftSignOAuth = lift ... signOAuth
 
 tumblrOAuth :: AppKey -> AppSecret -> OAuth
 tumblrOAuth key secret =
