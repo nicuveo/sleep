@@ -1,12 +1,23 @@
 build:
-	stack build --haddock --ghc-options '${ghc-options}'
+	stack build --ghc-options '${ghc-options}'
 
-test: build
+test:
 	rm -f sleep-test.tix
-	stack test --ghc-options '${ghc-options}'
+	stack test  --ghc-options '${ghc-options}' --fast
+
+watch:
+	rm -f sleep-test.tix
+	stack test  --ghc-options '${ghc-options}' --fast --file-watch
 
 lint:
 	hlint src
+
+doc:
+	stack haddock
+	stack hoogle -- generate --local
+
+hoogle:
+	stack hoogle -- server --local --port=2727 &> /dev/null&
 
 imports:
 	./scripts/imports_graph.sh | dot -Tpng -o imports_graph.png
@@ -25,4 +36,4 @@ clean:
 
 all: lint report
 
-.PHONY: build test lint imports report clean all
+.PHONY: build test watch lint doc hoogle imports report clean all
