@@ -58,7 +58,7 @@ type AuthCred   = (OAuth, Credential)
 class Monad m => MonadSign m where
   signOAuth :: AuthCred -> N.Request -> m N.Request
   default signOAuth :: (MonadSign b, MonadTrans n, n b ~ m) => AuthCred -> N.Request -> m N.Request
-  signOAuth = defaultSignOAuth
+  signOAuth = liftSignOAuth
 
 instance MonadSign IO where
   signOAuth = uncurry OA.signOAuth
