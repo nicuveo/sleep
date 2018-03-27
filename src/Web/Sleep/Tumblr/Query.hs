@@ -37,7 +37,6 @@ module Web.Sleep.Tumblr.Query (
   APIKey(..),
   Limit(..),
   Offset(..),
-  PType(..),
   PFormat(..),
   PRange(..),
   AvatarSize(..),
@@ -59,6 +58,18 @@ module Web.Sleep.Tumblr.Query (
   -- blog likes
   getBlogLikes,
   getLikes,
+
+  -- blog likes
+  getBlogFollowees,
+  getFollowees,
+
+  -- blog likes
+  getBlogFollowers,
+  getFollowers,
+
+  -- blog post
+  getBlogPost,
+  getPost,
 
   -- blog posts
   getBlogPosts,
@@ -100,12 +111,15 @@ import           Web.Sleep.Tumblr.Network
 
 -- query
 
-data QName = QInfo
-           | QAvatar
-           | QLikes
-           | QPosts
-           | QQueuedPosts
-           | QDraftPosts
+data QName = QBlogInfo
+           | QBlogAvatar
+           | QBlogLikes
+           | QBlogFollowees
+           | QBlogFollowers
+           | QBlogPost
+           | QBlogPosts
+           | QBlogQueuedPosts
+           | QBlogDraftPosts
 
 data Query (q :: QName) m = Query { request :: N.Request
                                   , params  :: ParametersMap
@@ -158,18 +172,19 @@ toURI = fmap N.getUri . toRequest
 
 -- parameters
 
-newtype BlogId  = BlogId  String     deriving (Show, Eq, Typeable, IsString)
-newtype APIKey  = APIKey  AppKey     deriving (Show, Eq, Typeable, IsString)
-newtype Limit   = Limit   Int        deriving (Show, Eq, Typeable)
-newtype Offset  = Offset  Int        deriving (Show, Eq, Typeable)
-newtype PType   = PType   PostType   deriving (Show, Eq, Typeable)
-newtype PFormat = PFormat PostFormat deriving (Show, Eq, Typeable)
-data PRange     = POffset Int
-                | PBefore UTCTime
-                | PAfter  UTCTime
-                deriving (Show, Eq, Typeable)
-data AvatarSize = AS_16 | AS_24 | AS_30 | AS_40 | AS_48 | AS_64 | AS_96 | AS_128 | AS_512
-                deriving (Eq, Typeable)
+newtype APIKey   = APIKey   AppKey     deriving (Show, Eq, Typeable, IsString)
+newtype BlogId   = BlogId   String     deriving (Show, Eq, Typeable, IsString)
+newtype Before   = Before   UTCTime    deriving (Show, Eq, Typeable)
+newtype BeforeId = BeforeId Int        deriving (Show, Eq, Typeable)
+newtype Limit    = Limit    Int        deriving (Show, Eq, Typeable)
+newtype Offset   = Offset   Int        deriving (Show, Eq, Typeable)
+newtype PFormat  = PFormat  PostFormat deriving (Show, Eq, Typeable)
+data PRange      = POffset  Int
+                 | PBefore  UTCTime
+                 | PAfter   UTCTime
+                 deriving (Show, Eq, Typeable)
+data AvatarSize  = AS_16 | AS_24 | AS_30 | AS_40 | AS_48 | AS_64 | AS_96 | AS_128 | AS_512
+                 deriving (Eq, Typeable)
 
 instance Show AvatarSize where
   show AS_16  =  "16"
@@ -182,13 +197,15 @@ instance Show AvatarSize where
   show AS_128 = "128"
   show AS_512 = "512"
 
-instance ToParameter Limit      where mkParam (Limit     p) = ("limit",  B.pack $ show $ clamp 1 20 p)
-instance ToParameter Offset     where mkParam (Offset    o) = ("offset", B.pack $ show o)
-instance ToParameter PType      where mkParam (PType     p) = ("type",   B.pack $ show p)
-instance ToParameter PFormat    where mkParam (PFormat   f) = ("filter", B.pack $ show f)
-instance ToParameter PRange     where mkParam (POffset   o) = ("offset", B.pack $ show o)
-                                      mkParam (PBefore   d) = ("before", B.pack $ show $ toTimestamp d)
-                                      mkParam (PAfter    d) = ("after",  B.pack $ show $ toTimestamp d)
+instance ToParameter Before     where mkParam (Before    d) = ("before",    B.pack $ show $ toTimestamp d)
+instance ToParameter BeforeId   where mkParam (BeforeId  i) = ("before_id", B.pack $ show i)
+instance ToParameter Limit      where mkParam (Limit     p) = ("limit",     B.pack $ show $ clamp 1 20 p)
+instance ToParameter Offset     where mkParam (Offset    o) = ("offset",    B.pack $ show o)
+instance ToParameter PFormat    where mkParam (PFormat   f) = ("filter",    B.pack $ show f)
+instance ToParameter Tag        where mkParam (Tag       t) = ("tag",       B.pack t)
+instance ToParameter PRange     where mkParam (POffset   o) = ("offset",    B.pack $ show o)
+                                      mkParam (PBefore   d) = ("before",    B.pack $ show $ toTimestamp d)
+                                      mkParam (PAfter    d) = ("after",     B.pack $ show $ toTimestamp d)
 
 
 class HasBlogId a where
@@ -222,96 +239,148 @@ instance HasAPIKey APIKey where { getAPIKey = id }
 
 -- blog info
 
-instance QueryInfo 'QInfo where
-  type QueryResult 'QInfo = Blog
+instance QueryInfo 'QBlogInfo where
+  type QueryResult 'QBlogInfo = Blog
   getMethod = const QGet
 
-getBlogInfo :: MonadMaybeAuth c m => BlogId -> m (Query 'QInfo m)
+getBlogInfo :: MonadMaybeAuth c m => BlogId -> m (Query 'QBlogInfo m)
 getBlogInfo (BlogId bid) = liftMaybeAddAuth $ mkQuery $ "blog/" ++ bid ++ "/info"
 
-getInfo :: (MonadMaybeAuth c m, HasBlogId c) => m (Query 'QInfo m)
+getInfo :: (MonadMaybeAuth c m, HasBlogId c) => m (Query 'QBlogInfo m)
 getInfo = asks getBlogId >>= getBlogInfo
 
 
 
 -- blog avatar
 
-instance QueryInfo  'QAvatar where
-  type QueryResult  'QAvatar = PNGImage
+instance QueryInfo  'QBlogAvatar where
+  type QueryResult  'QBlogAvatar = PNGImage
   getMethod = const  QGet
 
-getBlogAvatar :: MonadMaybeAuth c m => BlogId -> AvatarSize -> m (Query 'QAvatar m)
+getBlogAvatar :: MonadMaybeAuth c m => BlogId -> AvatarSize -> m (Query 'QBlogAvatar m)
 getBlogAvatar (BlogId bid) s = liftMaybeAddAuth $ mkQuery $ "blog/" ++ bid ++ "/avatar/" ++ show s
 
-getAvatar :: (MonadMaybeAuth c m, HasBlogId c) => AvatarSize -> m (Query 'QAvatar m)
+getAvatar :: (MonadMaybeAuth c m, HasBlogId c) => AvatarSize -> m (Query 'QBlogAvatar m)
 getAvatar s = asks getBlogId >>= flip getBlogAvatar s
 
 
 
 -- blog likes
 
-instance QueryParam 'QLikes Limit
-instance QueryParam 'QLikes PRange
-instance QueryInfo  'QLikes where
-  type QueryResult  'QLikes = PostList
+instance QueryParam 'QBlogLikes Limit
+instance QueryParam 'QBlogLikes PRange
+instance QueryInfo  'QBlogLikes where
+  type QueryResult  'QBlogLikes = PostList
   getMethod = const  QGet
 
-getBlogLikes :: MonadMaybeAuth c m => BlogId -> m (Query 'QLikes m)
+getBlogLikes :: MonadMaybeAuth c m => BlogId -> m (Query 'QBlogLikes m)
 getBlogLikes (BlogId bid) = liftMaybeAddAuth $ mkQuery $ "blog/" ++ bid ++ "/likes"
 
-getLikes :: (MonadMaybeAuth c m, HasBlogId c) => m (Query 'QLikes m)
+getLikes :: (MonadMaybeAuth c m, HasBlogId c) => m (Query 'QBlogLikes m)
 getLikes = asks getBlogId >>= getBlogLikes
+
+
+
+-- blog followees
+
+instance QueryParam 'QBlogFollowees Limit
+instance QueryParam 'QBlogFollowees Offset
+instance QueryInfo  'QBlogFollowees where
+  type QueryResult  'QBlogFollowees = BlogSummaryList
+  getMethod = const  QGet
+
+getBlogFollowees :: MonadAuth c m => BlogId -> m (Query 'QBlogLikes m)
+getBlogFollowees (BlogId bid) = liftAddAuth $ mkQuery $ "blog/" ++ bid ++ "/following"
+
+getFollowees :: (MonadAuth c m, HasBlogId c) => m (Query 'QBlogLikes m)
+getFollowees = asks getBlogId >>= getBlogFollowees
+
+
+
+-- blog followers
+
+instance QueryParam 'QBlogFollowers Limit
+instance QueryParam 'QBlogFollowers Offset
+instance QueryInfo  'QBlogFollowers where
+  type QueryResult  'QBlogFollowers = BlogSummaryList
+  getMethod = const  QGet
+
+getBlogFollowers :: MonadAuth c m => BlogId -> m (Query 'QBlogLikes m)
+getBlogFollowers (BlogId bid) = liftAddAuth $ mkQuery $ "blog/" ++ bid ++ "/followers"
+
+getFollowers :: (MonadAuth c m, HasBlogId c) => m (Query 'QBlogLikes m)
+getFollowers = asks getBlogId >>= getBlogFollowers
+
+
+
+-- blog post
+
+instance QueryInfo 'QBlogPost where
+  type QueryResult 'QBlogPost = PostList
+  getMethod = const QGet
+
+getBlogPost :: MonadMaybeAuth c m => BlogId -> PostId -> m (Query 'QBlogPosts m)
+getBlogPost (BlogId bid) pid = liftMaybeAddAuth $ mkQuery $ "blog/" ++ bid ++ "/posts?id=" ++ show pid
+
+getPost :: (MonadMaybeAuth c m, HasBlogId c) => PostId -> m (Query 'QBlogPosts m)
+getPost pid = asks getBlogId >>= flip getBlogPost pid
 
 
 
 -- blog posts
 
-instance QueryParam 'QPosts Limit;
-instance QueryParam 'QPosts Offset;
-instance QueryParam 'QPosts PType;
-instance QueryInfo  'QPosts where
-  type QueryResult  'QPosts = PostList
-  getMethod = const QGet
+instance QueryParam 'QBlogPosts Before
+instance QueryParam 'QBlogPosts Limit
+instance QueryParam 'QBlogPosts Offset
+instance QueryParam 'QBlogPosts PFormat
+instance QueryParam 'QBlogPosts Tag
+instance QueryInfo  'QBlogPosts where
+  type QueryResult  'QBlogPosts = PostList
+  getMethod = const  QGet
 
-getBlogPosts :: MonadMaybeAuth c m => BlogId -> m (Query 'QPosts m)
+getBlogPosts :: MonadMaybeAuth c m => BlogId -> m (Query 'QBlogPosts m)
 getBlogPosts (BlogId bid) = liftMaybeAddAuth $ mkQuery $ "blog/" ++ bid ++ "/posts"
 
-getPosts :: (MonadMaybeAuth c m, HasBlogId c) => m (Query 'QPosts m)
+getPosts :: (MonadMaybeAuth c m, HasBlogId c) => m (Query 'QBlogPosts m)
 getPosts = asks getBlogId >>= getBlogPosts
 
-getBlogPostsByType :: MonadMaybeAuth c m => BlogId -> PostType -> m (Query 'QPosts m)
+getBlogPostsByType :: MonadMaybeAuth c m => BlogId -> PostType -> m (Query 'QBlogPosts m)
 getBlogPostsByType (BlogId bid) t = liftMaybeAddAuth $ mkQuery $ "blog/" ++ bid ++ "/posts/" ++ show t
 
-getPostsByType :: (MonadMaybeAuth c m, HasBlogId c) => PostType -> m (Query 'QPosts m)
+getPostsByType :: (MonadMaybeAuth c m, HasBlogId c) => PostType -> m (Query 'QBlogPosts m)
 getPostsByType t = asks getBlogId >>= flip getBlogPostsByType t
 
 
 
 -- blog posts queue
 
-instance QueryParam 'QQueuedPosts Limit;
-instance QueryInfo  'QQueuedPosts where
-  type QueryResult  'QQueuedPosts = PostList
-  getMethod = const QGet
+instance QueryParam 'QBlogQueuedPosts Limit;
+instance QueryParam 'QBlogQueuedPosts Offset;
+instance QueryParam 'QBlogQueuedPosts PFormat;
+instance QueryInfo  'QBlogQueuedPosts where
+  type QueryResult  'QBlogQueuedPosts = PostList
+  getMethod = const  QGet
 
-getBlogQueuedPosts :: MonadAuth c m => BlogId -> m (Query 'QQueuedPosts m)
+getBlogQueuedPosts :: MonadAuth c m => BlogId -> m (Query 'QBlogQueuedPosts m)
 getBlogQueuedPosts (BlogId bid) = liftAddAuth $ mkQuery $ "blog/" ++ bid ++ "/posts/queue"
 
-getQueuedPosts :: (MonadAuth c m, HasBlogId c) => m (Query 'QQueuedPosts m)
+getQueuedPosts :: (MonadAuth c m, HasBlogId c) => m (Query 'QBlogQueuedPosts m)
 getQueuedPosts = asks getBlogId >>= getBlogQueuedPosts
 
 
 
 -- blog posts draft
 
-instance QueryInfo  'QDraftPosts where
-  type QueryResult  'QDraftPosts = PostList
-  getMethod = const QGet
+instance QueryParam 'QBlogDraftPosts BeforeId;
+instance QueryParam 'QBlogDraftPosts PFormat;
+instance QueryInfo  'QBlogDraftPosts where
+  type QueryResult  'QBlogDraftPosts = PostList
+  getMethod = const  QGet
 
-getBlogDraftPosts :: MonadAuth c m => BlogId -> m (Query 'QDraftPosts m)
+getBlogDraftPosts :: MonadAuth c m => BlogId -> m (Query 'QBlogDraftPosts m)
 getBlogDraftPosts (BlogId bid) = liftAddAuth $ mkQuery $ "blog/" ++ bid ++ "/posts/draft"
 
-getDraftPosts :: (MonadAuth c m, HasBlogId c) => m (Query 'QDraftPosts m)
+getDraftPosts :: (MonadAuth c m, HasBlogId c) => m (Query 'QBlogDraftPosts m)
 getDraftPosts = asks getBlogId >>= getBlogDraftPosts
 
 

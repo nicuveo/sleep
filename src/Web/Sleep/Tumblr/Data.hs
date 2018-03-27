@@ -1,4 +1,5 @@
-{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE OverloadedStrings     #-}
 
 
 
@@ -7,7 +8,8 @@
 module Web.Sleep.Tumblr.Data (
   -- helper types
   HTML,
-  Tag,
+  PostId,
+  Tag(..),
   PNGImage(..),
   -- data types
   PostFormat(..),
@@ -18,9 +20,11 @@ module Web.Sleep.Tumblr.Data (
   Photo(..),
   Video(..),
   Blog(..),
+  BlogSummary(..),
   PostBase(..),
   Post(..),
   BlogList(..),
+  BlogSummaryList(..),
   PostList(..),
   -- accessors
   postBlogName,
@@ -51,6 +55,7 @@ import qualified Data.ByteString.Char8     as SB (unpack)
 import qualified Data.ByteString.Lazy      as LB
 import           Data.Text                 as T
 import           Data.Time.Clock
+import           Data.Typeable
 import qualified Network.HTTP.Client       as N
 import qualified Network.HTTP.Types.Header as N
 import qualified Network.URI               as N
@@ -64,7 +69,11 @@ import           Web.Sleep.Tumblr.Network
 -- exported types
 
 type HTML = String
-type Tag = String
+
+type PostId = Int
+
+newtype Tag = Tag { getTag :: String
+                  } deriving (Show, Eq, Typeable)
 
 data PNGImage = ImageRawData LB.ByteString
               | ImageURI     N.URI
@@ -120,7 +129,12 @@ data Blog = Blog { blogTitle       :: String
                  , blogLikes       :: Maybe Int
                  } deriving (Show, Eq)
 
-data PostBase = PostBase { pId          :: Int
+data BlogSummary = BlogSummary { blogName    :: String
+                               , blogURI     :: N.URI
+                               , blogUpdated :: UTCTime
+                               } deriving (Show, Eq)
+
+data PostBase = PostBase { pId          :: PostId
                          , pBlogName    :: String
                          , pBookmarklet :: Bool
                          , pDate        :: UTCTime
@@ -188,6 +202,9 @@ data Post = AnswerPost { postBase       :: PostBase
 
 newtype BlogList = BlogList { blogList :: [Blog]
                             } deriving (Show, Eq)
+
+newtype BlogSummaryList = BlogSummaryList { blogSummaryList :: [BlogSummary]
+                                          } deriving (Show, Eq)
 
 newtype PostList = PostList { postList :: [Post]
                             } deriving (Show, Eq)
@@ -273,7 +290,7 @@ parsePostBase o = do
   sourceTitle <- o .:? "source_title"
   sourceURI   <- ifPresent parseURI =<< o .:? "source_url"
   state       <- o .: "state"
-  tags        <- o .: "tags"
+  tags        <- fmap Tag <$> o .: "tags"
   theURI      <- parseURI =<< o .: "post_url"
   return $ PostBase theId theBlogName bookmarklet date format liked mobile noteCount reblogKey sourceTitle sourceURI state tags theURI
 
@@ -287,7 +304,7 @@ postBaseToObject p = join [ [ "id"             .= pId pb
                             , "note_count"     .= pNoteCount pb
                             , "reblog_key"     .= pReblogKey pb
                             , "state"          .= pState pb
-                            , "tags"           .= pTags pb
+                            , "tags"           .= fmap getTag (pTags pb)
                             , "type"           .= postType p
                             , "post_url"       .= show (pURI pb)
                             ]
@@ -470,10 +487,10 @@ instance ToJSON Blog where
   toJSON b = object
     [ "blog" .= object (
         [ "title"                   .= blogTitle b
-        , "name"                    .= blogName b
+        , "name"                    .= blogName (b :: Blog)
         , "description"             .= blogDescription b
         , "posts"                   .= blogPosts b
-        , "updated"                 .= toTimestamp (blogUpdated b)
+        , "updated"                 .= toTimestamp (blogUpdated (b :: Blog))
         , "ask"                     .= blogAsk b
         , "ask_anon"                .= blogAskAnon b
         , "is_blocked_from_primary" .= blogBlocked b
@@ -483,6 +500,23 @@ instance ToJSON Blog where
     ]
 
 instance Decode Blog
+
+
+instance FromJSON BlogSummary where
+  parseJSON = withObject "blog summary" $ \o -> do
+    name    <- o .: "name"
+    uri     <- parseURI =<< o .: "url"
+    updated <- fromTimestamp <$> o .: "updated"
+    return $ BlogSummary name uri updated
+
+instance ToJSON BlogSummary where
+  toJSON b = object
+    [ "name"    .= blogName (b :: BlogSummary)
+    , "url"     .= show (blogURI b)
+    , "updated" .= toTimestamp (blogUpdated (b :: BlogSummary))
+    ]
+
+instance Decode BlogSummary
 
 
 instance FromJSON PostBase where
@@ -611,6 +645,16 @@ instance ToJSON BlogList where
   toJSON (BlogList blogs) = object [ "blogs" .= blogs ]
 
 instance Decode BlogList
+
+
+instance FromJSON BlogSummaryList where
+  parseJSON = withObject "blog summary list" $ \o ->
+    BlogSummaryList <$> o .: "users"
+
+instance ToJSON BlogSummaryList where
+  toJSON (BlogSummaryList blogs) = object [ "users" .= blogs ]
+
+instance Decode BlogSummaryList
 
 
 instance FromJSON PostList where

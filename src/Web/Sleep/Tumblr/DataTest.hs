@@ -57,6 +57,9 @@ instance Arbitrary N.URI where
 instance Arbitrary T.UTCTime where
   arbitrary = fromTimestamp <$> a
 
+instance Arbitrary Tag where
+  arbitrary = Tag <$> a
+
 instance Arbitrary PostFormat where
   arbitrary = elements [minBound .. maxBound]
 
@@ -81,6 +84,9 @@ instance Arbitrary Video where
 instance Arbitrary Blog where
   arbitrary = Blog <$> a <*> a <*> a <*> a <*> a <*> a <*> a <*> a <*> a
 
+instance Arbitrary BlogSummary where
+  arbitrary = BlogSummary <$> a <*> a <*> a
+
 instance Arbitrary PostBase where
   arbitrary = PostBase <$> a <*> a <*> a <*> a <*> a <*> a <*> a <*> a <*> a <*> a <*> a <*> a <*> a <*> a
 
@@ -97,6 +103,9 @@ instance Arbitrary Post where
 
 instance Arbitrary BlogList where
   arbitrary = BlogList <$> a `suchThat` (\l -> length l < 5)
+
+instance Arbitrary BlogSummaryList where
+  arbitrary = BlogSummaryList <$> a `suchThat` (\l -> length l < 5)
 
 instance Arbitrary PostList where
   arbitrary = PostList <$> a `suchThat` (\l -> length l < 5)
@@ -144,8 +153,10 @@ tests = testGroup "Web.Sleep.Tumblr.Data" list
                , testPhoto
                , testVideo
                , testBlog
+               , testBlogSummary
                , testPost
                , testBlogList
+               , testBlogSummaryList
                , testPostList
                , testPNGRawImage
                , testPNGImageURL
@@ -153,18 +164,21 @@ tests = testGroup "Web.Sleep.Tumblr.Data" list
 
 testPostFormat, testPostState, testPostType            :: TestTree
 testDialogueEntry, testPhotoSize, testPhoto, testVideo :: TestTree
-testBlog, testPost, testBlogList, testPostList         :: TestTree
-testPostFormat    = testProperty "stability of PostFormat"    $ \(x :: PostFormat)    -> checkStability x
-testPostState     = testProperty "stability of PostState"     $ \(x :: PostState)     -> checkStability x
-testPostType      = testProperty "stability of PostType"      $ \(x :: PostType)      -> checkStability x
-testDialogueEntry = testProperty "stability of DialogueEntry" $ \(x :: DialogueEntry) -> checkStability x
-testPhotoSize     = testProperty "stability of PhotoSize"     $ \(x :: PhotoSize)     -> checkStability x
-testPhoto         = testProperty "stability of Photo"         $ \(x :: Photo)         -> checkStability x
-testVideo         = testProperty "stability of Video"         $ \(x :: Video)         -> checkStability x
-testBlog          = testProperty "stability of Blog"          $ \(x :: Blog)          -> checkStability x
-testPost          = testProperty "stability of Post"          $ \(x :: Post)          -> checkStability x
-testBlogList      = testProperty "stability of BlogList"      $ \(x :: BlogList)      -> checkStability x
-testPostList      = testProperty "stability of PostList"      $ \(x :: PostList)      -> checkStability x
+testBlog, testBlogSummary, testPost                    :: TestTree
+testBlogList, testBlogSummaryList, testPostList        :: TestTree
+testPostFormat      = testProperty "stability of PostFormat"      $ \(x :: PostFormat)      -> checkStability x
+testPostState       = testProperty "stability of PostState"       $ \(x :: PostState)       -> checkStability x
+testPostType        = testProperty "stability of PostType"        $ \(x :: PostType)        -> checkStability x
+testDialogueEntry   = testProperty "stability of DialogueEntry"   $ \(x :: DialogueEntry)   -> checkStability x
+testPhotoSize       = testProperty "stability of PhotoSize"       $ \(x :: PhotoSize)       -> checkStability x
+testPhoto           = testProperty "stability of Photo"           $ \(x :: Photo)           -> checkStability x
+testVideo           = testProperty "stability of Video"           $ \(x :: Video)           -> checkStability x
+testBlog            = testProperty "stability of Blog"            $ \(x :: Blog)            -> checkStability x
+testBlogSummary     = testProperty "stability of BlogSummary"     $ \(x :: BlogSummary)     -> checkStability x
+testPost            = testProperty "stability of Post"            $ \(x :: Post)            -> checkStability x
+testBlogList        = testProperty "stability of BlogList"        $ \(x :: BlogList)        -> checkStability x
+testBlogSummaryList = testProperty "stability of BlogSummaryList" $ \(x :: BlogSummaryList) -> checkStability x
+testPostList        = testProperty "stability of PostList"        $ \(x :: PostList)        -> checkStability x
 
 testPNGImageURL :: TestTree
 testPNGImageURL = testCase "stability of PNGImage (url)" assertion
