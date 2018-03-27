@@ -11,6 +11,7 @@ module Web.Sleep.Tumblr.Network (
   callT,
   callE,
   Decode(..),
+  decodeJSON,
   ) where
 
 
@@ -48,8 +49,10 @@ callE = doCall >=> either throwError return . decode
 class Decode a where
   decode :: N.Response ByteString -> Either Error a
   default decode :: EnvelopeFromJSON a => N.Response ByteString -> Either Error a
-  decode = getResponse . N.responseBody
+  decode = decodeJSON
 
+decodeJSON :: EnvelopeFromJSON a => N.Response ByteString -> Either Error a
+decodeJSON = getResponse . N.responseBody
 
 
 -- helper

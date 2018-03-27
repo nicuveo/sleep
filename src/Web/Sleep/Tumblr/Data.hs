@@ -58,7 +58,6 @@ import           Network.URL
 import           Web.Sleep.Common.Misc
 import           Web.Sleep.Tumblr.Error
 import           Web.Sleep.Tumblr.Network
-import           Web.Sleep.Tumblr.Response
 
 
 
@@ -317,7 +316,7 @@ instance ToJSON PNGImage where
 instance Decode PNGImage where
   decode r = case lookup N.hContentType $ N.responseHeaders r of
                Just "image/png" -> Right $ ImageRawData $ N.responseBody r
-               Just "text/json" -> getResponse $ N.responseBody r
+               Just "text/json" -> decodeJSON r
                Just t           -> Left $ ClientError 2 $ "expected image type: " ++ SB.unpack t -- FIXME
                Nothing          -> Left $ ClientError 3 "missing content type header"            -- FIXME
 
