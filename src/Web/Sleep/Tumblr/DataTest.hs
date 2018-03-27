@@ -109,17 +109,17 @@ checkStability x = Right x == decode ( makeMockResponse "text/json" $
 
 makeMockEnvelope :: LB.ByteString -> LB.ByteString
 makeMockEnvelope x = LB.concat [ "\
-                                \\n{\
-                                \\n  \"meta\": {\
-                                \\n    \"status\": 200,\
-                                \\n    \"msg\": \"OK\"\
-                                \\n  },\
-                                \\n  \"response\": "
-                              , x
-                              , "\
-                                \\n}\
-                                \\n"
-                              ]
+                                 \\n{\
+                                 \\n  \"meta\": {\
+                                 \\n    \"status\": 200,\
+                                 \\n    \"msg\": \"OK\"\
+                                 \\n  },\
+                                 \\n  \"response\": "
+                               , x
+                               , "\
+                                 \\n}\
+                                 \\n"
+                               ]
 
 makeMockResponse :: SB.ByteString -> LB.ByteString -> N.Response LB.ByteString
 makeMockResponse ct body = N.Response { N.responseStatus    = N.mkStatus 200 "OK"
