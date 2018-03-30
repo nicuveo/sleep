@@ -42,7 +42,7 @@ import qualified Network.HTTP.Client.TLS as N
 
 -- request helpers
 
-data QMethod = QGet | QPost
+data QMethod = QGet | QPost deriving (Show, Eq)
 
 class Monad m => ToRequest a m where
   type RequestResult a :: *
