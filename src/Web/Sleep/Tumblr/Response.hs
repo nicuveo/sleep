@@ -63,7 +63,7 @@ instance FromJSON Meta where
 instance EnvelopeFromJSON a => FromJSON (Envelope a) where
   parseJSON = withObject "envelope" $ \o -> do
     Meta status msg <- o .: "meta"
-    if status == 200
+    if status >= 200 && status < 300
     then toEnvelope o
     else do
       let result s = return $ Envelope $ Left $ ServerError status $ msg ++ s
