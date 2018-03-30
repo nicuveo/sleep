@@ -7,6 +7,7 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE KindSignatures             #-}
 {-# LANGUAGE MultiParamTypeClasses      #-}
+{-# LANGUAGE MultiWayIf                 #-}
 {-# LANGUAGE OverloadedStrings          #-}
 {-# LANGUAGE TypeFamilies               #-}
 
@@ -108,6 +109,7 @@ import           Data.String
 import           Data.Time.Clock
 import           Data.Typeable
 import qualified Network.HTTP.Client       as N
+import qualified Network.HTTP.Types.Header as N
 import qualified Network.HTTP.Types.Method as N
 import qualified Network.URI               as N (URI)
 import qualified Network.URI.Encode        as N
@@ -159,7 +161,7 @@ instance Monad m => ToRequest (Query q m) m where
   type RequestResult (Query q m) = QueryResult q
   toRequest q = sign q $ toUnsignedRequest q
 
-instance QueryInfo q => Show (Query q m) where
+instance Show (Query q m) where
   show = show . toUnsignedURI
 
 
@@ -170,7 +172,10 @@ instance QueryInfo q => Show (Query q m) where
 q &= p = pAdd p <$> q
 
 toUnsignedRequest :: Query q m -> N.Request
-toUnsignedRequest q = appendParams (M.elems $ params q) $ request q
+toUnsignedRequest q = if | N.method req == N.methodGet  -> req
+                         | N.method req == N.methodPost -> qsToBody req
+                         | otherwise                    -> error "FIXME(oh noes)"
+  where req = appendParams (M.elems $ params q) $ request q
 
 toUnsignedURI :: Query q m -> N.URI
 toUnsignedURI = N.getUri . toUnsignedRequest
@@ -412,10 +417,8 @@ instance QueryInfo  'PostText where
   getMethod = const QPost
 
 postNewBlogText :: MonadAuth c m => BlogId -> String -> m (Query 'PostText m)
-postNewBlogText (BlogId bid) body = liftAddAuth $ mkQuery bid "/post" qs
-  where qs = [ ("type", "text")
-             , ("body", fromString $ N.encode body)
-             ]
+postNewBlogText (BlogId bid) b = liftAddAuth $ mkQuery bid "/post" qs
+  where qs = [("type", "text"), ("body", fromString b)]
 
 postNewText :: (MonadAuth c m, HasBlogId c) => String -> m (Query 'PostText m)
 postNewText body = asks getBlogId >>= flip postNewBlogText body
@@ -423,6 +426,12 @@ postNewText body = asks getBlogId >>= flip postNewBlogText body
 
 
 -- local helpers
+
+qsToBody :: N.Request -> N.Request
+qsToBody req = appendHeader N.hContentType "application/x-www-form-urlencoded" $
+               N.setQueryString [] $
+               setBody qs req
+  where qs = N.queryString req
 
 mkQuery :: (Monad m, QueryInfo q) => String -> String -> [Parameter] -> m (Query q m)
 mkQuery bid path qs = return resultQuery
