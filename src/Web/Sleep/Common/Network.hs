@@ -33,13 +33,22 @@ module Web.Sleep.Common.Network (
 -- imports
 
 import           Control.Monad.Cont
+import           Control.Monad.Except
+import           Control.Monad.List
 import           Control.Monad.Reader
-import qualified Data.ByteString           as EB
-import qualified Data.ByteString.Lazy      as LB
-import           Data.List                 (foldl')
-import qualified Network.HTTP.Client       as N
-import qualified Network.HTTP.Client.TLS   as N
-import qualified Network.HTTP.Types.Header as N
+import           Control.Monad.RWS
+import           Control.Monad.State
+import           Control.Monad.Trans.Maybe
+import           Control.Monad.Trans.Resource
+import           Control.Monad.Writer
+import qualified Data.ByteString              as EB
+import qualified Data.ByteString.Lazy         as LB
+import           Data.List                    (foldl')
+import qualified Network.HTTP.Client          as N
+import qualified Network.HTTP.Client.TLS      as N
+import qualified Network.HTTP.Types.Header    as N
+
+import           Web.Sleep.Common.Misc
 
 
 
@@ -73,9 +82,22 @@ setBody body req = req { N.requestBody = N.RequestBodyBS body }
 
 -- network monad
 
-class HasNetwork c m where
+class Monad m => HasNetwork c m where
   send :: c -> N.Request -> m (N.Response LB.ByteString)
-  default send :: (MonadIO m, N.HasHttpManager c) => c -> N.Request -> m (N.Response LB.ByteString)
+  default send :: (HasNetwork c b, MonadTrans n, n b ~ m) => c -> N.Request -> m (N.Response LB.ByteString)
+  send = liftSend
+
+instance (Monoid w, HasNetwork c m) => HasNetwork c (RWST r w s m)
+instance (Monoid w, HasNetwork c m) => HasNetwork c (WriterT w m)
+instance HasNetwork c m             => HasNetwork c (ContT r m)
+instance HasNetwork c m             => HasNetwork c (ExceptT e m)
+instance HasNetwork c m             => HasNetwork c (ListT m)
+instance HasNetwork c m             => HasNetwork c (MaybeT m)
+instance HasNetwork c m             => HasNetwork c (ReaderT c m)
+instance HasNetwork c m             => HasNetwork c (StateT s m)
+instance HasNetwork c m             => HasNetwork c (ResourceT m)
+
+instance N.HasHttpManager c => HasNetwork c IO where
   send = defaultSend
 
 type MonadNetwork c m = (MonadReader c m, HasNetwork c m)
@@ -83,6 +105,9 @@ type MonadNetwork c m = (MonadReader c m, HasNetwork c m)
 
 
 -- simple network functions
+
+liftSend :: (HasNetwork c b, MonadTrans m) => c -> N.Request -> m b (N.Response LB.ByteString)
+liftSend = lift ... send
 
 defaultManager :: MonadIO m => m N.Manager
 defaultManager = liftIO $ N.newManager N.tlsManagerSettings

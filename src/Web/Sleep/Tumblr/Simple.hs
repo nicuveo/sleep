@@ -135,11 +135,3 @@ instance N.HasHttpManager JustAuthCred where
 
 instance N.HasHttpManager c => N.HasHttpManager (BlogContext c) where
   getHttpManager = N.getHttpManager . ctx
-
-
-instance MonadIO m => HasNetwork NoContext       m
-instance MonadIO m => HasNetwork JustAPIKey      m
-instance MonadIO m => HasNetwork JustAuthCred    m
-
-instance HasNetwork c m => HasNetwork (BlogContext c) m where
-  send c = send $ ctx c
