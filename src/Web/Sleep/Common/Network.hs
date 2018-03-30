@@ -20,6 +20,8 @@ module Web.Sleep.Common.Network (
   ToRequest(..),
   appendParam,
   appendParams,
+  appendHeader,
+  setBody,
   HasNetwork(..),
   MonadNetwork,
   defaultManager,
@@ -32,11 +34,12 @@ module Web.Sleep.Common.Network (
 
 import           Control.Monad.Cont
 import           Control.Monad.Reader
-import qualified Data.ByteString         as EB
-import qualified Data.ByteString.Lazy    as LB
-import           Data.List               (foldl')
-import qualified Network.HTTP.Client     as N
-import qualified Network.HTTP.Client.TLS as N
+import qualified Data.ByteString           as EB
+import qualified Data.ByteString.Lazy      as LB
+import           Data.List                 (foldl')
+import qualified Network.HTTP.Client       as N
+import qualified Network.HTTP.Client.TLS   as N
+import qualified Network.HTTP.Types.Header as N
 
 
 
@@ -50,7 +53,7 @@ class Monad m => ToRequest a m where
 
 
 
--- query string helpers
+-- request helpers
 
 appendParam :: (EB.ByteString, EB.ByteString) -> N.Request -> N.Request
 appendParam p req = req { N.queryString = append p $ N.queryString req }
@@ -59,6 +62,12 @@ appendParam p req = req { N.queryString = append p $ N.queryString req }
 
 appendParams :: [(EB.ByteString, EB.ByteString)] -> N.Request -> N.Request
 appendParams = flip $ foldl' $ flip appendParam
+
+appendHeader :: N.HeaderName -> EB.ByteString -> N.Request -> N.Request
+appendHeader hn hv req = req { N.requestHeaders = N.requestHeaders req ++ [ (hn, hv) ] }
+
+setBody :: EB.ByteString -> N.Request -> N.Request
+setBody body req = req { N.requestBody = N.RequestBodyBS body }
 
 
 
