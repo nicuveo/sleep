@@ -1,3 +1,4 @@
+{-# LANGUAGE ConstraintKinds       #-}
 {-# LANGUAGE DefaultSignatures     #-}
 {-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
@@ -11,6 +12,9 @@ module Web.Sleep.Tumblr.Network (
   call,
   callT,
   callE,
+  MonadTumblrCall,
+  MonadTumblrCallT,
+  MonadTumblrCallE,
   Decode(..),
   decodeJSON,
   ) where
@@ -26,6 +30,7 @@ import           Data.ByteString.Lazy
 import qualified Network.HTTP.Client       as N
 
 import           Web.Sleep.Common.Network
+import           Web.Sleep.Tumblr.Auth
 import           Web.Sleep.Tumblr.Error
 import           Web.Sleep.Tumblr.Response
 
@@ -42,6 +47,10 @@ callE :: (MonadNetwork c m, ToRequest q m, Decode (RequestResult q), MonadError 
 call  = doCall >=>                   return . decode
 callT = doCall >=> either throw      return . decode
 callE = doCall >=> either throwError return . decode
+
+type MonadTumblrCall  c m = (MonadNetwork c m, MonadSign m)
+type MonadTumblrCallT c m = (MonadNetwork c m, MonadSign m, MonadThrow m)
+type MonadTumblrCallE c m = (MonadNetwork c m, MonadSign m, MonadError Error m)
 
 
 
