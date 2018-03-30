@@ -117,7 +117,6 @@ downloadPhoto config (pid, index, url) = do
 
 downloadPhotos :: Config -> Int -> SimpleMonad Int
 downloadPhotos config o = do
-  -- liftIO . print . getUri =<< toRequest =<< getPosts &= Offset o &= PType PhotoType &= Limit 20
   (PostList posts) <- callT =<< getPostsByType PhotoType &= Offset o &= Limit 20
   let recentEnough = [post | post <- posts, pId (postBase post) > configLastId config]
       remaining = length recentEnough
