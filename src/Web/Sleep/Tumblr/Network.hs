@@ -52,6 +52,8 @@ class Decode a where
   default decode :: EnvelopeFromJSON a => N.Response ByteString -> Either Error a
   decode = decodeJSON
 
+instance Decode ()
+
 decodeJSON :: EnvelopeFromJSON a => N.Response ByteString -> Either Error a
 decodeJSON = getResponse . N.responseBody
 
