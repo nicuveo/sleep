@@ -53,6 +53,7 @@ import           Data.Aeson
 import           Data.Aeson.Types
 import qualified Data.ByteString.Char8     as SB (unpack)
 import qualified Data.ByteString.Lazy      as LB
+import           Data.String
 import           Data.Text                 as T
 import           Data.Time.Clock
 import           Data.Typeable
@@ -81,13 +82,13 @@ data PNGImage = ImageRawData LB.ByteString
 
 data PostFormat = HTMLPost
                 | MarkdownPost
-                deriving (Show, Eq, Enum, Bounded)
+                deriving (Eq, Enum, Bounded)
 
 data PostState = PrivatePost
                | DraftPost
                | QueuedPost
                | PublishedPost
-               deriving (Show, Eq, Enum, Bounded)
+               deriving (Eq, Enum, Bounded)
 
 data PostType = AnswerType
               | AudioType
@@ -338,6 +339,10 @@ instance Decode PNGImage where
                Nothing          -> Left $ ClientError 3 "missing content type header"            -- FIXME
 
 
+instance Show PostFormat where
+  show HTMLPost     = "html"
+  show MarkdownPost = "markdown"
+
 instance FromJSON PostFormat where
   parseJSON = withText "post format" parseFormat
     where parseFormat "html"     = return HTMLPost
@@ -345,11 +350,16 @@ instance FromJSON PostFormat where
           parseFormat s          = fail $ T.unpack s ++ " is not a valid post format"
 
 instance ToJSON PostFormat where
-  toJSON HTMLPost     = "html"
-  toJSON MarkdownPost = "markdown"
+  toJSON = fromString . show
 
 instance Decode PostFormat
 
+
+instance Show PostState where
+  show PrivatePost   = "private"
+  show DraftPost     = "draft"
+  show QueuedPost    = "queued"
+  show PublishedPost = "published"
 
 instance FromJSON PostState where
   parseJSON = withText "post state" parseState
@@ -360,10 +370,7 @@ instance FromJSON PostState where
           parseState s           = fail $ T.unpack s ++ " is not a valid post state"
 
 instance ToJSON PostState where
-  toJSON PrivatePost   = "private"
-  toJSON DraftPost     = "draft"
-  toJSON QueuedPost    = "queued"
-  toJSON PublishedPost = "published"
+  toJSON = fromString . show
 
 instance Decode PostState
 
@@ -391,14 +398,7 @@ instance FromJSON PostType where
           parseType s        = fail $ T.unpack s ++ " is not a valid post type"
 
 instance ToJSON PostType where
-  toJSON AnswerType = "answer"
-  toJSON AudioType  = "audio"
-  toJSON ChatType   = "chat"
-  toJSON LinkType   = "link"
-  toJSON PhotoType  = "photo"
-  toJSON QuoteType  = "quote"
-  toJSON TextType   = "text"
-  toJSON VideoType  = "video"
+  toJSON = fromString . show
 
 instance Decode PostType
 
