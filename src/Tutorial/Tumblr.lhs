@@ -1,3 +1,4 @@
+> {-# LANGUAGE FlexibleContexts           #-}
 > {-# LANGUAGE FlexibleInstances          #-}
 > {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 > {-# LANGUAGE MultiParamTypeClasses      #-}
@@ -5,10 +6,17 @@
 
 > -- module
 
-> module Tutorial.Tumblr (createTextPost) where
+> module Tutorial.Tumblr (
+>   MyTumblrMonad(..),
+>   Context(..),
+>   createTextPost,
+>   hasDrafts,
+>   getLastTenTextPosts,
+> ) where
 
+> import           Data.List              as L
+> import           Control.Monad.Identity
 > import           Control.Exception.Safe
-> import           Control.Monad
 > import           Control.Monad.Reader
 > import           Data.ByteString
 > import qualified Network.HTTP.Client    as N
@@ -47,13 +55,18 @@
 > instance HasBlogId Context where
 >   getBlogId = BlogId . blog
 
-> instance MonadIO m => HasNetwork Context m
+> instance HasNetwork Context m => HasNetwork Context (MyTumblrMonad m)
+> instance HasNetwork Context Identity where send = error "NOT IMPLEMENTED LOL"
 
 
-
-> -- main
 
 > createTextPost :: String -> MyTumblrMonad IO ()
-> createTextPost content = do
->   (PostList posts) <- callT =<< getPosts &= Offset 10 &= PType PhotoType &= Limit 20
->   when (posts /= []) $ liftIO $ print "test"
+> createTextPost content = callT =<< postNewText content &= Title "An update!"
+
+> hasDrafts :: (HasNetwork Context m, MonadSign m, MonadThrow m) => MyTumblrMonad m Bool
+> hasDrafts = do
+>   (PostList drafts) <- callT =<< getDraftPosts
+>   return $ not $ L.null drafts
+
+> getLastTenTextPosts :: MonadTumblrCall Context m => MyTumblrMonad m (Either Error PostList)
+> getLastTenTextPosts = call =<< getPostsByType TextType &= Limit 10
