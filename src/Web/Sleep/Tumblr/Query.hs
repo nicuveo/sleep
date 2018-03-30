@@ -170,8 +170,7 @@ instance QueryInfo q => Show (Query q m) where
 q &= p = pAdd p <$> q
 
 toUnsignedRequest :: Query q m -> N.Request
-toUnsignedRequest q = N.setQueryString queryStr $ request q
-  where queryStr = fmap (fmap Just) $ M.elems $ params q
+toUnsignedRequest q = appendParams (M.elems $ params q) $ request q
 
 toUnsignedURI :: Query q m -> N.URI
 toUnsignedURI = N.getUri . toUnsignedRequest
@@ -217,7 +216,7 @@ instance ToParameter Filter   where mkParam (Filter    f) = ("filter",    fromSt
 instance ToParameter Format   where mkParam (Format    f) = ("format",    fromString $ show f)
 instance ToParameter Limit    where mkParam (Limit     p) = ("limit",     fromString $ show $ clamp 1 20 p)
 instance ToParameter Offset   where mkParam (Offset    o) = ("offset",    fromString $ show o)
-instance ToParameter Title    where mkParam (Title     t) = ("title ",    fromString $ N.encode t)
+instance ToParameter Title    where mkParam (Title     t) = ("title",     fromString $ N.encode t)
 instance ToParameter Tag      where mkParam (Tag       t) = ("tag",       fromString t)
 instance ToParameter State    where mkParam (State     s) = ("state",     fromString $ show s)
 instance ToParameter PRange   where mkParam (POffset   o) = ("offset",    fromString $ show o)
@@ -413,7 +412,7 @@ instance QueryInfo  'PostText where
   getMethod = const QPost
 
 postNewBlogText :: MonadAuth c m => BlogId -> String -> m (Query 'PostText m)
-postNewBlogText (BlogId bid) body = liftAddAuth $ mkQuery bid "/posts/draft" qs
+postNewBlogText (BlogId bid) body = liftAddAuth $ mkQuery bid "/post" qs
   where qs = [ ("type", "text")
              , ("body", fromString $ N.encode body)
              ]
