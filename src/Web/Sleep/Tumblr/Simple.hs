@@ -8,14 +8,14 @@
 -- module
 
 module Web.Sleep.Tumblr.Simple (
-  SimpleAnonymousMonad,
   SimpleAPIKeyMonad,
   SimpleAPIKeyBlogMonad,
   SimpleAuthCredMonad,
   SimpleAuthCredBlogMonad,
-  anonymously,
   withAPIKey,
+  withManagerAndAPIKey,
   withAuth,
+  withManagerAndAuth,
   withBlog,
   getSimpleAuthCred,
   getSimpleDebugAuthCred,
@@ -37,7 +37,6 @@ import           Web.Sleep.Tumblr
 
 -- type aliases for simple monad use
 
-type SimpleAnonymousMonad    = ReaderT NoContext
 type SimpleAPIKeyMonad       = ReaderT JustAPIKey
 type SimpleAPIKeyBlogMonad   = ReaderT (BlogContext JustAPIKey)
 type SimpleAuthCredMonad     = ReaderT JustAuthCred
@@ -47,20 +46,17 @@ type SimpleAuthCredBlogMonad = ReaderT (BlogContext JustAuthCred)
 
 -- helper functions for simple usage
 
-anonymously :: MonadIO m => SimpleAnonymousMonad m r -> m r
-anonymously e = do
-  m <- defaultManager
-  runReaderT e $ NoContext m
-
 withAPIKey :: MonadIO m => APIKey -> SimpleAPIKeyMonad m r -> m r
-withAPIKey key e = do
-  m <- defaultManager
-  runReaderT e $ JustAPIKey m key
+withAPIKey key e = defaultManager >>= \m -> withManagerAndAPIKey m key e
+
+withManagerAndAPIKey :: N.Manager -> APIKey -> SimpleAPIKeyMonad m r -> m r
+withManagerAndAPIKey m key e = runReaderT e $ JustAPIKey m key
 
 withAuth :: MonadIO m => AuthCred -> SimpleAuthCredMonad m r -> m r
-withAuth auth e = do
-  m <- defaultManager
-  runReaderT e $ JustAuthCred m auth
+withAuth auth e = defaultManager >>= \m -> withManagerAndAuth m auth e
+
+withManagerAndAuth :: N.Manager -> AuthCred -> SimpleAuthCredMonad m r -> m r
+withManagerAndAuth m auth e = runReaderT e $ JustAuthCred m auth
 
 withBlog :: BlogId -> ReaderT (BlogContext c) m r -> ReaderT c m r
 withBlog bid = withReaderT $ BlogContext bid
@@ -93,10 +89,9 @@ getSimpleDebugAuthCred callback oauth = do
 
 -- internal simple contexts
 
-newtype NoContext     = NoContext    { ctxManager :: N.Manager }
-data    JustAPIKey    = JustAPIKey   { ctxManager :: N.Manager, ctxAPIKey :: APIKey }
-data    JustAuthCred  = JustAuthCred { ctxManager :: N.Manager, ctxAuthCred :: AuthCred }
-data    BlogContext c = BlogContext  { ctxBlog :: BlogId, ctx :: c }
+data JustAPIKey    = JustAPIKey   { ctxManager :: N.Manager, ctxAPIKey :: APIKey }
+data JustAuthCred  = JustAuthCred { ctxManager :: N.Manager, ctxAuthCred :: AuthCred }
+data BlogContext c = BlogContext  { ctxBlog :: BlogId, ctx :: c }
 
 
 instance HasAPIKey JustAPIKey where
@@ -123,9 +118,6 @@ instance HasAuthCred c => HasAuthCred (BlogContext c) where
 instance HasBlogId (BlogContext c) where
   getBlogId = ctxBlog
 
-
-instance N.HasHttpManager NoContext where
-  getHttpManager = ctxManager
 
 instance N.HasHttpManager JustAPIKey where
   getHttpManager = ctxManager
