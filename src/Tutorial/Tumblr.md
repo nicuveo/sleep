@@ -26,7 +26,7 @@ Nothing fancy here.
 {-# LANGUAGE MultiParamTypeClasses      #-}
 {-# LANGUAGE OverloadedStrings          #-}
 
-module Tumblr where
+module Tutorial.Tumblr where
 
 import           Data.List              as L
 import           Control.Monad.Identity
@@ -139,11 +139,11 @@ instance HasAPIKey Context where
 For authentication, two instances. `MayHaveAuthCred` has a default
 implementation that makes use of the `HasAuthCred` instance.
 
-`MayHaveAuthCred` has only one function,
-`maybeGetAuthCred :: a -> Maybe AuthCred`, which is used in all functions that
-do not necessarily require authentication. It has a default overlappable
-instance for all types a, which simply returns `Nothing`. But here, we are
-authentified, and we can return an AuthCred in both cases.
+`MayHaveAuthCred a` has only one function, `maybeGetAuthCred :: a -> Maybe
+AuthCred`, which is used in all functions that do not necessarily require
+authentication. It has a default overlappable instance for all types `a`, which
+simply returns `Nothing`. But here, we are authentified, and we can return an
+AuthCred in both cases.
 
 ```haskell
 instance MayHaveAuthCred Context
@@ -191,7 +191,7 @@ one does is abstract the oauth request signing process. Two instances are
 defined: one for `IO`, which does the actual signing, and one for `Identity`,
 intended for test purposes, which just adds parameters to the query
 string. Instances are also defined for all usual monad transformers, meaning you
-can simply derive MonadSign, and it'll simply forward to the monad at the base
+can simply derive `MonadSign`, and it'll simply forward to the monad at the base
 of your stack.
 
 Another monad for which we'll need to do some deriving is `HasNetwork`. It is
@@ -204,14 +204,14 @@ derived. You'll need to add the following:
 instance HasNetwork Context m => HasNetwork Context (MyTumblrMonad m)
 ```
 
-No instance of HasNetwork exists for `Identity`, but you can add your own for
+No instance of `HasNetwork` exists for `Identity`, but you can add your own for
 test purposes:
 
 
 ```haskell
 instance HasNetwork Context Identity where
     send :: Context -> N.Request -> Identity (N.Response B.ByteString)
-    send _ = return $ error "not implemented"
+    send _ = return $ error "implement some mock behaviour here"
 ```
 
 

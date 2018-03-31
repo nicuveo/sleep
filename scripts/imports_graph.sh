@@ -2,7 +2,7 @@
 
 set -e
 
-FILES=$(find src -type f \( -iname "*.hs" -o -iname "*.lhs" \))
+FILES=$(find src -type f,l \( -iname "*.hs" -o -iname "*.lhs" \))
 TESTS=""
 MAINS=""
 TUTOS=""
@@ -11,7 +11,7 @@ COMMON=""
 OTHERS=""
 
 function module() {
-    m=$(sed -n 's/^\(> \)\?module \([^ ]*\).*/\2/p' "$1")
+    m=$(sed -n 's/^module \([^ ]*\).*/\1/p' "$1")
     echo ${m:-$1}
 }
 
@@ -51,7 +51,7 @@ for f in $TESTS; do
 done
 
 for f in $FILES; do
-    for import in $(sed -n 's/^\(> \)\?import \(qualified\)\? *\([^ ]*\).*/\3/p' $f | grep 'Sleep') ; do
+    for import in $(sed -n 's/^import \(qualified\)\? *\([^ ]*\).*/\2/p' $f | egrep 'Sleep|Tutorial') ; do
         echo "    \"$(module $f)\" -> \"$import\""
     done
 done

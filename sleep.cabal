@@ -135,7 +135,7 @@ test-suite sleep-test
 
 test-suite tutorial-check
   type:                exitcode-stdio-1.0
-  hs-source-dirs:      src/Tutorial
+  hs-source-dirs:      src,src/Tutorial
   main-is:             Checker.hs
   ghc-options:         -Wall
                        -Wcompat
@@ -149,8 +149,18 @@ test-suite tutorial-check
                        -threaded -rtsopts -with-rtsopts=-N -fhpc
                        -pgmL markdown-unlit
   default-language:    Haskell2010
-  other-modules:       Tumblr
-  build-depends:       base >= 4.7 && < 5, sleep,
+  other-modules:       Tutorial.Tumblr
+                       Web.Sleep.Common.Misc
+                       Web.Sleep.Common.Network
+                       Web.Sleep.Tumblr
+                       Web.Sleep.Tumblr.Auth
+                       Web.Sleep.Tumblr.Data
+                       Web.Sleep.Tumblr.Error
+                       Web.Sleep.Tumblr.Network
+                       Web.Sleep.Tumblr.Query
+                       Web.Sleep.Tumblr.Response
+                       Web.Sleep.Tumblr.Simple
+  build-depends:       base >= 4.7 && < 5,
                        MissingH,
                        aeson,
                        authenticate-oauth,
