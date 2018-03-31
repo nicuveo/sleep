@@ -108,7 +108,7 @@ test-suite sleep-test
                        Web.Sleep.Tumblr.QueryTest,
                        Web.Sleep.Tumblr.Response,
                        Web.Sleep.Tumblr.ResponseTest
-  build-depends:       base >= 4.7 && < 5, sleep,
+  build-depends:       base >= 4.7 && < 5,
                        MissingH,
                        aeson,
                        authenticate-oauth,
@@ -130,6 +130,44 @@ test-suite sleep-test
                        tasty,
                        tasty-hunit,
                        tasty-quickcheck,
+                       uri-encode,
+                       vector
+
+test-suite tutorial-check
+  type:                exitcode-stdio-1.0
+  hs-source-dirs:      src,src/Tutorial
+  main-is:             Checker.hs
+  ghc-options:         -Wall
+                       -Wcompat
+                       -Wincomplete-record-updates
+                       -Wincomplete-uni-patterns
+                       -Wredundant-constraints
+                       -fno-warn-type-defaults
+                       -fno-warn-unused-do-bind
+                       -fwarn-tabs
+                       -O2
+                       -threaded -rtsopts -with-rtsopts=-N -fhpc
+                       -pgmL markdown-unlit
+  default-language:    Haskell2010
+  other-modules:       Tutorial.Tumblr
+  build-depends:       base >= 4.7 && < 5, sleep,
+                       MissingH,
+                       aeson,
+                       authenticate-oauth,
+                       bytestring,
+                       containers,
+                       http-client,
+                       http-client-tls,
+                       http-types,
+                       iso8601-time,
+                       ixset,
+                       mtl,
+                       network-uri,
+                       resourcet,
+                       safe-exceptions,
+                       text,
+                       time,
+                       transformers,
                        uri-encode,
                        vector
 
