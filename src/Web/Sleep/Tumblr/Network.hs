@@ -67,6 +67,7 @@ decodeJSON :: EnvelopeFromJSON a => N.Response ByteString -> Either Error a
 decodeJSON = getResponse . N.responseBody
 
 
+
 -- helper
 
 doCall :: (MonadNetwork c m, ToRequest q m) => q -> m (N.Response ByteString)
