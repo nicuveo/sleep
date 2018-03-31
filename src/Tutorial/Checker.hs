@@ -4,7 +4,7 @@
 
 {-# OPTIONS_GHC -fno-warn-unused-imports #-}
 
-import           Tutorial.Tumblr
+import           Tumblr
 
 main :: IO ()
 main = return ()

@@ -2,11 +2,11 @@ build:
 	stack build --ghc-options '${ghc-options}'
 
 test:
-	rm -f sleep-test.tix
+	rm -f *.tix
 	stack test  --ghc-options '${ghc-options}' --fast
 
 watch:
-	rm -f sleep-test.tix
+	rm -f *.tix
 	stack test  --ghc-options '${ghc-options}' --fast --file-watch
 
 lint:
@@ -29,7 +29,7 @@ report: test
 	hpc markup ../../sleep-test.tix --srcdir=../.. --exclude=Main
 
 clean:
-	rm -f sleep-test.tix
+	rm -f *.tix
 	rm -f imports.png
 	rm -Rf test/report
 	stack clean

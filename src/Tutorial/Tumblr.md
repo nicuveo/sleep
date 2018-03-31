@@ -1,13 +1,16 @@
 # Tumblr API example
 
 This file aims at showing how to use the Tumblr API, using the Web.Sleep
-library. This file is a [literate Haskell](http://fixme.com) file, meaning it is
-both rendered as documentation by Github and compilable by GHC. You can load it
-in GHCI by running
+library. This file is a [literate
+Haskell](https://wiki.haskell.org/Literate_programming) file, meaning it is both
+rendered as documentation by Github and compilable by GHC. You can load it in
+GHCI by running the following commands (you'll need to have the `markdown-unlit`
+package installed).
 
 ```bash
+$ stack install markdown-unlit
 $ stack ghci
-λ :l src/Tutorial/Tumblr.hs
+λ :l src/Tutorial/Tumblr.lhs
 ```
 
 
@@ -19,18 +22,21 @@ Nothing fancy here.
 {-# LANGUAGE FlexibleContexts           #-}
 {-# LANGUAGE FlexibleInstances          #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE InstanceSigs               #-}
 {-# LANGUAGE MultiParamTypeClasses      #-}
 {-# LANGUAGE OverloadedStrings          #-}
 
-module Tutorial.Tumblr where
+module Tumblr where
 
 import           Data.List              as L
 import           Control.Monad.Identity
 import           Control.Exception.Safe
 import           Control.Monad.Reader
 import           Data.ByteString
+import qualified Data.ByteString.Lazy   as B
 import qualified Network.HTTP.Client    as N
 ```
+
 
 ## Sleep imports
 
@@ -43,6 +49,7 @@ import           Web.Sleep.Tumblr
 import           Web.Sleep.Tumblr.Simple
 ```
 
+
 ## General design
 
 With that out of the way, let's discuss how the Tumblr API is implemented.  Each
@@ -50,8 +57,8 @@ API function has a corresponding function: to get the posts of a blog, you would
 use `getBlogPosts`, to post a new text entry, you would use `postNewBlogText`.
 
 All those functions return a monadic `Query`. You can do two things with those:
-  1. add optional parameters, using the `&=` operator (see examples below)
-  2. send that query over the network using one of the three call functions,
+  * add optional parameters, using the `&=` operator (see examples below)
+  * send that query over the network using one of the three call functions,
      depending on what flavour of error handling you would prefer to use:
     * `call` returns a `m (Either Error Result)`
     * `callT` returns a `MonadThrow m => m Result`
@@ -96,14 +103,12 @@ For more information on authentication, please see:
   * Web.Sleep.Tumblr.Simple
 
 
-## Creating our own monad
+## Creating our custom context
 
 For more interesting use cases, let's see how we could use our own monad to run
 those queries. The most important requirement is for that monad to be an
 instance of `MonadReader`. Let's first define our context, that will contain
 everything we need.
-
-### Context
 
 ```haskell
 data Context = Context { apiKey  :: ByteString
@@ -149,8 +154,8 @@ instance HasAuthCred Context where
 Finally, this one is for convenience. All blog query functions have two
 variants: one that expects the blog name as an argument, one that gets the blog
 from the current context: `getBlogPosts` versus `getPosts`. The `Simple` API
-also defines a wrapper around `withReaderT` that allows one to locally add a
-blog name to a given context.
+also defines a wrapper around `withReaderT`, `withBlog` that allows one to
+locally add a blog name to a given context.
 
 ```haskell
 instance HasBlogId Context where
@@ -158,8 +163,17 @@ instance HasBlogId Context where
 ```
 
 
+## Creating our own monad
+
+Nothing more is needed than:
+
 ```haskell
 type BaseTumblrMonad = ReaderT Context
+```
+
+but if you prefer to wrap in a `newtype`, you could do the following:
+
+```haskell
 newtype MyTumblrMonad m a = MyTumblrMonad {
   run :: BaseTumblrMonad m a
   } deriving (Functor,
@@ -172,23 +186,61 @@ newtype MyTumblrMonad m a = MyTumblrMonad {
               MonadSign)
 ```
 
+Out of those, the only monad that is specific to Sleep is `MonadSign`. What this
+one does is abstract the oauth request signing process. Two instances are
+defined: one for `IO`, which does the actual signing, and one for `Identity`,
+intended for test purposes, which just adds parameters to the query
+string. Instances are also defined for all usual monad transformers, meaning you
+can simply derive MonadSign, and it'll simply forward to the monad at the base
+of your stack.
+
+Another monad for which we'll need to do some deriving is `HasNetwork`. It is
+the one that abstracts the actual network connection. It is already defined for
+`IO` and for all monad transformers, but sadly cannot be automagically
+derived. You'll need to add the following:
 
 
 ```haskell
 instance HasNetwork Context m => HasNetwork Context (MyTumblrMonad m)
-instance HasNetwork Context Identity where send = error "NOT IMPLEMENTED LOL"
 ```
 
+No instance of HasNetwork exists for `Identity`, but you can add your own for
+test purposes:
+
+
+```haskell
+instance HasNetwork Context Identity where
+    send :: Context -> N.Request -> Identity (N.Response B.ByteString)
+    send _ = return $ error "not implemented"
+```
+
+
+
+## Putting it together
+
+We can directly use our monad with IO:
 
 ```haskell
 createTextPost :: String -> MyTumblrMonad IO ()
 createTextPost content = callT =<< postNewText content &= Title "An update!"
+```
 
+If we want to abstract the monad at the bottom of the stack, for test purposes,
+we'll need to explicitly list all the requirements on `m`:
+
+```haskell
 hasDrafts :: (HasNetwork Context m, MonadSign m, MonadThrow m) => MyTumblrMonad m Bool
 hasDrafts = do
   (PostList drafts) <- callT =<< getDraftPosts
   return $ not $ L.null drafts
+```
 
+But some aliases are defined for each call function:
+  * `call  -> MonadTumblrCall`
+  * `callT -> MonadTumblrCallT`
+  * `callE -> MonadTumblrCallE`
+
+```haskell
 getLastTenTextPosts :: MonadTumblrCall Context m => MyTumblrMonad m (Either Error PostList)
 getLastTenTextPosts = call =<< getPostsByType TextType &= Limit 10
 ```

@@ -135,7 +135,7 @@ test-suite sleep-test
 
 test-suite tutorial-check
   type:                exitcode-stdio-1.0
-  hs-source-dirs:      src,src/Tutorial
+  hs-source-dirs:      src/Tutorial
   main-is:             Checker.hs
   ghc-options:         -Wall
                        -Wcompat
@@ -149,7 +149,7 @@ test-suite tutorial-check
                        -threaded -rtsopts -with-rtsopts=-N -fhpc
                        -pgmL markdown-unlit
   default-language:    Haskell2010
-  other-modules:       Tutorial.Tumblr
+  other-modules:       Tumblr
   build-depends:       base >= 4.7 && < 5, sleep,
                        MissingH,
                        aeson,
@@ -161,6 +161,7 @@ test-suite tutorial-check
                        http-types,
                        iso8601-time,
                        ixset,
+                       markdown-unlit,
                        mtl,
                        network-uri,
                        resourcet,
