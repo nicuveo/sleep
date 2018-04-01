@@ -17,23 +17,14 @@
 
 module Web.Sleep.Tumblr.Query (
 
-  -- query
-  QMethod(..),
-  QueryName(..),
+  -- * Query
   Query,
-  QueryInfo(..),
-  Parameter,
-  ParametersMap,
-  ToParameter(..),
-  QueryParam(..),
-
-  -- query functions
   (&=),
   toUnsignedRequest,
   toUnsignedURI,
   toURI,
 
-  -- parameters
+  -- * Parameters
   BlogId(..),
   APIKey(..),
   Before(..),
@@ -54,45 +45,45 @@ module Web.Sleep.Tumblr.Query (
   MonadAuth,
   MonadMaybeAuth,
 
-  -- blog info
+  -- * Blog info
   getBlogInfo,
   getInfo,
 
-  -- blog avatar
+  -- * Blog avatar
   getBlogAvatar,
   getAvatar,
 
-  -- blog likes
+  -- * Blog likes
   getBlogLikes,
   getLikes,
 
-  -- blog likes
+  -- * Blog followees
   getBlogFollowees,
   getFollowees,
 
-  -- blog likes
+  -- * Blog followers
   getBlogFollowers,
   getFollowers,
 
-  -- blog post
+  -- * Blog post
   getBlogPost,
   getPost,
 
-  -- blog posts
+  -- * Blog posts
   getBlogPosts,
   getPosts,
   getBlogPostsByType,
   getPostsByType,
 
-  -- blog posts queue
+  -- * Blog posts queue
   getBlogQueuedPosts,
   getQueuedPosts,
 
-  -- blog posts draft
+  -- * Blog posts draft
   getBlogDraftPosts,
   getDraftPosts,
 
-  -- post new text
+  -- * Post new text
   postNewBlogText,
   postNewText,
 
