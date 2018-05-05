@@ -10,7 +10,7 @@ watch:
 	stack test  --ghc-options '${ghc-options}' --fast --file-watch
 
 lint:
-	hlint src
+	hlint src --no-exit-code
 
 doc:
 	stack haddock
