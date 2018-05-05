@@ -21,3 +21,4 @@ cabal.project.local
 .HTF/
 test/report
 imports_graph.png
+.dir-locals.el
