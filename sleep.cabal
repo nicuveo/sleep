@@ -37,7 +37,6 @@ library
                        Web.Sleep.Common.Misc,
                        Web.Sleep.Common.Network
   build-depends:       base >= 4.7 && < 5,
-                       MissingH,
                        aeson,
                        authenticate-oauth,
                        bytestring,
@@ -45,8 +44,6 @@ library
                        http-client,
                        http-client-tls,
                        http-types,
-                       iso8601-time,
-                       ixset,
                        mtl,
                        network-uri,
                        resourcet,
@@ -54,7 +51,6 @@ library
                        text,
                        time,
                        transformers,
-                       transformers-base,
                        uri-encode,
                        vector
 
@@ -83,7 +79,6 @@ executable tumblr-photo-download
                        http-conduit,
                        mtl,
                        resourcet,
-                       transformers-base,
                        uri-encode
 
 test-suite sleep-test
@@ -116,7 +111,7 @@ test-suite sleep-test
                        Web.Sleep.Tumblr.Response,
                        Web.Sleep.Tumblr.ResponseTest
   build-depends:       base >= 4.7 && < 5,
-                       MissingH,
+                       QuickCheck,
                        aeson,
                        authenticate-oauth,
                        bytestring,
@@ -124,20 +119,16 @@ test-suite sleep-test
                        http-client,
                        http-client-tls,
                        http-types,
-                       iso8601-time,
-                       ixset,
                        mtl,
                        network-uri,
-                       QuickCheck,
                        resourcet,
                        safe-exceptions,
-                       text,
-                       time,
-                       transformers,
-                       transformers-base,
                        tasty,
                        tasty-hunit,
                        tasty-quickcheck,
+                       text,
+                       time,
+                       transformers,
                        uri-encode,
                        vector
 
@@ -172,7 +163,6 @@ test-suite tutorial-check
                        Web.Sleep.Tumblr.Response
                        Web.Sleep.Tumblr.Simple
   build-depends:       base >= 4.7 && < 5,
-                       MissingH,
                        aeson,
                        authenticate-oauth,
                        bytestring,
@@ -180,8 +170,6 @@ test-suite tutorial-check
                        http-client,
                        http-client-tls,
                        http-types,
-                       iso8601-time,
-                       ixset,
                        markdown-unlit,
                        mtl,
                        network-uri,
@@ -190,7 +178,6 @@ test-suite tutorial-check
                        text,
                        time,
                        transformers,
-                       transformers-base,
                        uri-encode,
                        vector
 
