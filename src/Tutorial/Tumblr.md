@@ -28,13 +28,11 @@ Nothing fancy here.
 
 module Tutorial.Tumblr where
 
-import           Data.List              as L
-import           Control.Monad.Identity
-import           Control.Exception.Safe
-import           Control.Monad.Reader
-import           Data.ByteString
-import qualified Data.ByteString.Lazy   as B
-import qualified Network.HTTP.Client    as N
+-- import           Data.List              as L
+-- import           Control.Exception.Safe
+-- import           Control.Monad.Reader
+-- import           Data.ByteString
+-- import qualified Network.HTTP.Client    as N
 ```
 
 
@@ -44,7 +42,7 @@ There are two main entry points to the library:
   * `Web.Sleep.Tumblr` exports everything you'll need,
   * `Web.Sleep.Tumblr.Simple` exports additional helpers.
 
-```haskell
+```haskell-nope
 import           Web.Sleep.Tumblr
 import           Web.Sleep.Tumblr.Simple
 ```
@@ -81,7 +79,7 @@ by being authentified and signing requests with OAuth. Correspondingly, there
 are two main `Simple` functions: `withAPIkey` and `withAuth`, which run in
 `IO`. Some monad aliases are also defined:
 
-```haskell
+```haskell-nope
 fetchBlogInfo :: APIKey -> IO Blog
 fetchBlogInfo k = withAPIKey k theRequest
   where theRequest :: SimpleAPIKeyMonad IO Blog
@@ -110,7 +108,7 @@ those queries. The most important requirement is for that monad to be an
 instance of `MonadReader`. Let's first define our context, that will contain
 everything we need.
 
-```haskell
+```haskell-nope
 data Context = Context { apiKey  :: ByteString
                        , auth    :: AuthCred
                        , manager :: N.Manager
@@ -124,14 +122,14 @@ which we need to make our Context an instance, mostly to retrieve those fields.
 
 To start with, our context has an http manager:
 
-```haskell
+```haskell-nope
 instance N.HasHttpManager Context where
   getHttpManager = manager
 ```
 
 It also provides an API key:
 
-```haskell
+```haskell-nope
 instance HasAPIKey Context where
   getAPIKey = APIKey . apiKey
 ```
@@ -145,7 +143,7 @@ authentication. It has a default overlappable instance for all types `a`, which
 simply returns `Nothing`. But here, we are authentified, and we can return an
 AuthCred in both cases.
 
-```haskell
+```haskell-nope
 instance MayHaveAuthCred Context
 instance HasAuthCred Context where
   getAuthCred = auth
@@ -157,7 +155,7 @@ from the current context: `getBlogPosts` versus `getPosts`. The `Simple` API
 also defines a wrapper around `withReaderT`, `withBlog` that allows one to
 locally add a blog name to a given context.
 
-```haskell
+```haskell-nope
 instance HasBlogId Context where
   getBlogId = BlogId . blog
 ```
@@ -167,13 +165,13 @@ instance HasBlogId Context where
 
 Nothing more is needed than:
 
-```haskell
+```haskell-nope
 type BaseTumblrMonad = ReaderT Context
 ```
 
 but if you prefer to wrap in a `newtype`, you could do the following:
 
-```haskell
+```haskell-nope
 newtype MyTumblrMonad m a = MyTumblrMonad {
   run :: BaseTumblrMonad m a
   } deriving (Functor,
@@ -182,8 +180,7 @@ newtype MyTumblrMonad m a = MyTumblrMonad {
               MonadTrans,
               MonadThrow,
               MonadReader Context,
-              MonadIO,
-              MonadSign)
+              MonadIO)
 ```
 
 Out of those, the only monad that is specific to Sleep is `MonadSign`. What this
@@ -200,18 +197,18 @@ the one that abstracts the actual network connection. It is already defined for
 derived. You'll need to add the following:
 
 
-```haskell
-instance HasNetwork Context m => HasNetwork Context (MyTumblrMonad m)
+```haskell-nope
+-- instance HasNetwork Context m => HasNetwork Context (MyTumblrMonad m)
 ```
 
 No instance of `HasNetwork` exists for `Identity`, but you can add your own for
 test purposes:
 
 
-```haskell
-instance HasNetwork Context Identity where
-    send :: Context -> N.Request -> Identity (N.Response B.ByteString)
-    send _ = return $ error "implement some mock behaviour here"
+```haskell-nope
+-- instance HasNetwork Context Identity where
+--     send :: Context -> N.Request -> Identity (N.Response B.ByteString)
+--     send _ = return $ error "implement some mock behaviour here"
 ```
 
 
@@ -220,7 +217,7 @@ instance HasNetwork Context Identity where
 
 We can directly use our monad with IO:
 
-```haskell
+```haskell-nope
 createTextPost :: String -> MyTumblrMonad IO ()
 createTextPost content = callT =<< postNewText content &= Title "An update!"
 ```
@@ -228,8 +225,8 @@ createTextPost content = callT =<< postNewText content &= Title "An update!"
 If we want to abstract the monad at the bottom of the stack, for test purposes,
 we'll need to explicitly list all the requirements on `m`:
 
-```haskell
-hasDrafts :: (HasNetwork Context m, MonadSign m, MonadThrow m) => MyTumblrMonad m Bool
+```haskell-nope
+hasDrafts :: (MonadThrow m) => MyTumblrMonad m Bool
 hasDrafts = do
   (PostList drafts) <- callT =<< getDraftPosts
   return $ not $ L.null drafts
@@ -240,7 +237,7 @@ But some aliases are defined for each call function:
   * `callT -> MonadTumblrCallT`
   * `callE -> MonadTumblrCallE`
 
-```haskell
-getLastTenTextPosts :: MonadTumblrCall Context m => MyTumblrMonad m (Either Error PostList)
+```haskell-nope
+getLastTenTextPosts :: Monad m => MyTumblrMonad m (Either Error PostList)
 getLastTenTextPosts = call =<< getPostsByType TextType &= Limit 10
 ```
