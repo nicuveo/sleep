@@ -1,4 +1,5 @@
 {-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE OverloadedStrings     #-}
 
 
@@ -64,6 +65,7 @@ import qualified Network.URI               as N
 import           Web.Sleep.Common.Misc
 import           Web.Sleep.Tumblr.Error
 import           Web.Sleep.Tumblr.Network
+import           Web.Sleep.Tumblr.Response
 
 
 
@@ -328,6 +330,9 @@ postBaseToObject p = join [ [ "id"             .= pId pb
 instance FromJSON PNGImage where
   parseJSON = withObject "avatar" $ \o -> fmap ImageURI $ parseURI =<< o .: "avatar_url"
 
+instance FromJSON (Envelope PNGImage) where
+  parseJSON = parseEnvelope
+
 instance ToJSON PNGImage where
   toJSON _ = error "[not implemented yet]"
 
@@ -349,6 +354,9 @@ instance FromJSON PostFormat where
           parseFormat "markdown" = return MarkdownPost
           parseFormat s          = fail $ T.unpack s ++ " is not a valid post format"
 
+instance FromJSON (Envelope PostFormat) where
+  parseJSON = parseEnvelope
+
 instance ToJSON PostFormat where
   toJSON = fromString . show
 
@@ -368,6 +376,9 @@ instance FromJSON PostState where
           parseState "queued"    = return QueuedPost
           parseState "published" = return PublishedPost
           parseState s           = fail $ T.unpack s ++ " is not a valid post state"
+
+instance FromJSON (Envelope PostState) where
+  parseJSON = parseEnvelope
 
 instance ToJSON PostState where
   toJSON = fromString . show
@@ -397,6 +408,9 @@ instance FromJSON PostType where
           parseType "video"  = return VideoType
           parseType s        = fail $ T.unpack s ++ " is not a valid post type"
 
+instance FromJSON (Envelope PostType) where
+  parseJSON = parseEnvelope
+
 instance ToJSON PostType where
   toJSON = fromString . show
 
@@ -409,6 +423,9 @@ instance FromJSON DialogueEntry where
     label  <- o .: "label"
     phrase <- o .: "phrase"
     return $ DialogueEntry name label phrase
+
+instance FromJSON (Envelope DialogueEntry) where
+  parseJSON = parseEnvelope
 
 instance ToJSON DialogueEntry where
   toJSON (DialogueEntry name label phrase) =
@@ -427,6 +444,9 @@ instance FromJSON PhotoSize where
     url    <- parseURI =<< o .: "url"
     return $ PhotoSize width height url
 
+instance FromJSON (Envelope PhotoSize) where
+  parseJSON = parseEnvelope
+
 instance ToJSON PhotoSize where
   toJSON (PhotoSize width height url) =
     object [ "width"  .= width
@@ -444,6 +464,9 @@ instance FromJSON Photo where
     alt      <- o .: "alt_sizes"
     return $ Photo caption original alt
 
+instance FromJSON (Envelope Photo) where
+  parseJSON = parseEnvelope
+
 instance ToJSON Photo where
   toJSON (Photo mcaption original alt) =
     object $ [ "original_size" .= original
@@ -460,6 +483,9 @@ instance FromJSON Video where
     width <- o .: "width"
     code  <- o .: "embed_code"
     return $ Video width code
+
+instance FromJSON (Envelope Video) where
+  parseJSON = parseEnvelope
 
 instance ToJSON Video where
   toJSON (Video width code) = object [ "width"      .= width
@@ -482,6 +508,9 @@ instance FromJSON Blog where
     askAnon <- b .:? "ask_anon" .!= False
     blocked <- b .:? "is_blocked_from_primary" .!= False
     return $ Blog title name desc posts updated ask askAnon blocked likes
+
+instance FromJSON (Envelope Blog) where
+  parseJSON = parseEnvelope
 
 instance ToJSON Blog where
   toJSON b = object
@@ -508,6 +537,9 @@ instance FromJSON BlogSummary where
     uri     <- parseURI =<< o .: "url"
     updated <- fromTimestamp <$> o .: "updated"
     return $ BlogSummary name uri updated
+
+instance FromJSON (Envelope BlogSummary) where
+  parseJSON = parseEnvelope
 
 instance ToJSON BlogSummary where
   toJSON b = object
@@ -634,12 +666,18 @@ instance ToJSON Post where
             , "player"  .= player
             ]
 
+instance FromJSON (Envelope Post) where
+  parseJSON = parseEnvelope
+
 instance Decode Post
 
 
 instance FromJSON BlogList where
   parseJSON = withObject "blog list" $ \o ->
     BlogList <$> o .: "blogs"
+
+instance FromJSON (Envelope BlogList) where
+  parseJSON = parseEnvelope
 
 instance ToJSON BlogList where
   toJSON (BlogList blogs) = object [ "blogs" .= blogs ]
@@ -651,6 +689,9 @@ instance FromJSON BlogSummaryList where
   parseJSON = withObject "blog summary list" $ \o ->
     BlogSummaryList <$> o .: "users"
 
+instance FromJSON (Envelope BlogSummaryList) where
+  parseJSON = parseEnvelope
+
 instance ToJSON BlogSummaryList where
   toJSON (BlogSummaryList blogs) = object [ "users" .= blogs ]
 
@@ -660,6 +701,9 @@ instance Decode BlogSummaryList
 instance FromJSON PostList where
   parseJSON = withObject "post list" $ \o ->
     PostList <$> o .: "posts"
+
+instance FromJSON (Envelope PostList) where
+  parseJSON = parseEnvelope
 
 instance ToJSON PostList where
   toJSON (PostList posts) = object [ "posts" .= posts ]

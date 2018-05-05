@@ -26,6 +26,7 @@ module Web.Sleep.Tumblr.Network (
 import           Control.Exception.Safe
 import           Control.Monad.Except
 import           Control.Monad.Reader
+import           Data.Aeson                    (FromJSON)
 import           Data.ByteString.Lazy
 import qualified Network.HTTP.Client       as N
 
@@ -58,12 +59,12 @@ type MonadTumblrCallE c m = (MonadNetwork c m, MonadSign m, MonadError Error m)
 
 class Decode a where
   decode :: N.Response ByteString -> Either Error a
-  default decode :: EnvelopeFromJSON a => N.Response ByteString -> Either Error a
+  default decode :: FromJSON (Envelope a) => N.Response ByteString -> Either Error a
   decode = decodeJSON
 
 instance Decode ()
 
-decodeJSON :: EnvelopeFromJSON a => N.Response ByteString -> Either Error a
+decodeJSON :: FromJSON (Envelope a) => N.Response ByteString -> Either Error a
 decodeJSON = getResponse . N.responseBody
 
 

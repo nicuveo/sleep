@@ -1,4 +1,6 @@
+{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# OPTIONS_GHC -fno-warn-orphans #-}
 
 
 
@@ -11,6 +13,7 @@ module Web.Sleep.Tumblr.ResponseTest (tests) where
 -- imports
 
 import           Control.Arrow
+import           Data.Aeson
 import           Test.Tasty
 import           Test.Tasty.HUnit
 
@@ -20,6 +23,10 @@ import           Web.Sleep.Tumblr.Response
 
 
 -- tests
+
+instance FromJSON (Envelope Int) where
+  parseJSON = parseEnvelope
+
 
 tests :: TestTree
 tests = testGroup "Web.Sleep.Tumblr.Response" list

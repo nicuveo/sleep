@@ -2,15 +2,16 @@
 {-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedStrings     #-}
-{-# LANGUAGE UndecidableInstances  #-}
 
 
 
 -- module
 
 module Web.Sleep.Tumblr.Response (
-  EnvelopeFromJSON,
+  RawData,
+  Envelope,
   getResponse,
+  parseEnvelope,
   ) where
 
 
@@ -30,7 +31,7 @@ import           Web.Sleep.Tumblr.Error
 
 -- exported functions
 
-getResponse :: (EnvelopeFromJSON a) => RawData -> Either Error a
+getResponse :: (FromJSON (Envelope a)) => RawData -> Either Error a
 getResponse = join . fmap getRes . left _jsonError . eitherDecode'
 
 
@@ -60,8 +61,18 @@ instance FromJSON Meta where
     m <- o .: "msg"
     return $ Meta s m
 
-instance EnvelopeFromJSON a => FromJSON (Envelope a) where
-  parseJSON = withObject "envelope" $ \o -> do
+instance FromJSON (Envelope ()) where
+  parseJSON = parseEnvelopeWith $ \_ -> return $ Envelope $ Right ()
+
+
+
+-- local helpers
+
+parseEnvelope :: FromJSON a => Value -> Parser (Envelope a)
+parseEnvelope = parseEnvelopeWith $ \o -> Envelope . Right <$> o .: "response"
+
+parseEnvelopeWith :: (Object -> Parser (Envelope a)) -> Value -> Parser (Envelope a)
+parseEnvelopeWith toEnvelope = withObject "envelope" $ \o -> do
     Meta status msg <- o .: "meta"
     if status >= 200 && status < 300
     then toEnvelope o
@@ -73,16 +84,3 @@ instance EnvelopeFromJSON a => FromJSON (Envelope a) where
         Just es -> do
           detail <- withObject "error" (.: "detail") =<< withArray "errors" (return . V.head) es
           result $ " (" ++ detail ++ ")"
-
-
-
--- special case for ()
-
-class FromJSON a => EnvelopeFromJSON a where
-  toEnvelope :: Object -> Parser (Envelope a)
-
-instance FromJSON a => EnvelopeFromJSON a where
-  toEnvelope o = Envelope . Right <$> o .: "response"
-
-instance {-# INCOHERENT #-} EnvelopeFromJSON () where
-  toEnvelope _ = return $ Envelope $ Right ()
