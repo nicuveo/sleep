@@ -113,7 +113,7 @@ downloadPhoto config (pid, index, url) = do
   let filepath = configOutDir config </> show pid ++ "-" ++ show index
   req <- parseRequest url
   liftIO $ logInfo $ printf "downloading %s from %s" filepath url
-  withResponse req $ \resp -> responseBody resp $$ sinkFile filepath
+  withResponse req $ \resp -> runConduit $ responseBody resp .| sinkFile filepath
 
 downloadPhotos :: Config -> Int -> SimpleMonad Int
 downloadPhotos config o = do
