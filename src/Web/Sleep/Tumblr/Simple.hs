@@ -5,10 +5,10 @@ A collection of helpers aiming at providing a good enough out of the box
 experience with the Tumblr API.
 -}
 
-{-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE TypeFamilies          #-}
 
 
 
@@ -25,9 +25,7 @@ module Web.Sleep.Tumblr.Simple (
 
   -- * Monadic helpers
   withAPIKey,
-  withManagerAndAPIKey,
   withAuth,
-  withManagerAndAuth,
   withBlog,
 
   -- * Auth helpers
@@ -43,20 +41,22 @@ module Web.Sleep.Tumblr.Simple (
 -- imports
 
 import           Control.Monad.Reader
-import           Data.ByteString.Char8  (pack)
-import qualified Network.HTTP.Client    as N
-import qualified Web.Authenticate.OAuth as OA
+import           Data.ByteString.Char8         (pack)
+import qualified Network.HTTP.Client           as N
+import qualified Web.Authenticate.OAuth        as OA
 
+import           Web.Sleep.Common.Config
+import           Web.Sleep.Common.Helpers.Base
 import           Web.Sleep.Tumblr
 
 
 
 -- type aliases for simple monad use
 
-type SimpleAPIKeyMonad       = ReaderT JustAPIKey
-type SimpleAPIKeyBlogMonad   = ReaderT (BlogContext JustAPIKey)
-type SimpleAuthCredMonad     = ReaderT JustAuthCred
-type SimpleAuthCredBlogMonad = ReaderT (BlogContext JustAuthCred)
+type SimpleAPIKeyMonad       m = ReaderT              (JustAPIKey   (Base m))  m
+type SimpleAPIKeyBlogMonad   m = ReaderT (BlogContext (JustAPIKey   (Base m))) m
+type SimpleAuthCredMonad     m = ReaderT              (JustAuthCred (Base m))  m
+type SimpleAuthCredBlogMonad m = ReaderT (BlogContext (JustAuthCred (Base m))) m
 
 
 
@@ -69,32 +69,16 @@ type SimpleAuthCredBlogMonad = ReaderT (BlogContext JustAuthCred)
 
    > withApiKey key $ callT =<< getBlogInfo "myblog.tumblr.com"
 -}
-withAPIKey :: MonadIO m => APIKey -> SimpleAPIKeyMonad m r -> m r
-withAPIKey key e = defaultManager >>= \m -> withManagerAndAPIKey m key e
-
-{- | Does the same, but instead of creating a 'N.Manager' it uses the one given as
-   an argument.
-
-   > withManagerAndApiKey n key $ callT =<< getBlogInfo "myblog.tumblr.com"
--}
-withManagerAndAPIKey :: N.Manager -> APIKey -> SimpleAPIKeyMonad m r -> m r
-withManagerAndAPIKey m key e = runReaderT e $ JustAPIKey m key
+withAPIKey :: Config (Base m) -> APIKey -> SimpleAPIKeyMonad m r -> m r
+withAPIKey conf key e = runReaderT e $ JustAPIKey conf key
 
 {- | Similar to 'withAPIKey', except that it carries an authentication token
    instead of only having the key. All queries can therefore be used.
 
    > withAuth credentials $ callT =<< postNewBlogText "myblog.tumblr.com" "test"
 -}
-withAuth :: MonadIO m => AuthCred -> SimpleAuthCredMonad m r -> m r
-withAuth auth e = defaultManager >>= \m -> withManagerAndAuth m auth e
-
-{- | Does the same, but instead of creating an 'N.Manager' it uses the one given
-   as an argument.
-
-   > withManagerAndAuth m credentials $ callT =<< postNewBlogText "myblog.tumblr.com" "test"
--}
-withManagerAndAuth :: N.Manager -> AuthCred -> SimpleAuthCredMonad m r -> m r
-withManagerAndAuth m auth e = runReaderT e $ JustAuthCred m auth
+withAuth :: Config (Base m) -> AuthCred -> SimpleAuthCredMonad m r -> m r
+withAuth conf auth e = runReaderT e $ JustAuthCred conf auth
 
 {- | A wrapper around 'withReaderT' that adds a blog id to the current context,
    allowing you to use the query variants that do not explictly need the blog
@@ -145,24 +129,24 @@ getSimpleDebugAuthCred callback oauth = do
 
 -- internal simple contexts
 
-data JustAPIKey    = JustAPIKey   { ctxManager :: N.Manager, ctxAPIKey :: APIKey }
-data JustAuthCred  = JustAuthCred { ctxManager :: N.Manager, ctxAuthCred :: AuthCred }
-data BlogContext c = BlogContext  { ctxBlog :: BlogId, ctx :: c }
+data JustAPIKey   m = JustAPIKey   { jakConfig :: Config m, jakAPIKey   :: APIKey   }
+data JustAuthCred m = JustAuthCred { jacConfig :: Config m, jacAuthCred :: AuthCred }
+data BlogContext  c = BlogContext  { ctxBlog :: BlogId, ctx :: c }
 
 
-instance HasAPIKey JustAPIKey where
-  getAPIKey = ctxAPIKey
+instance HasAPIKey (JustAPIKey m) where
+  getAPIKey = jakAPIKey
 
-instance HasAPIKey JustAuthCred where
-  getAPIKey = APIKey . OA.oauthConsumerKey . fst . ctxAuthCred
+instance HasAPIKey (JustAuthCred m) where
+  getAPIKey = APIKey . OA.oauthConsumerKey . fst . jacAuthCred
 
 instance HasAPIKey c => HasAPIKey (BlogContext c) where
   getAPIKey = getAPIKey . ctx
 
 
-instance MayHaveAuthCred JustAuthCred
-instance HasAuthCred JustAuthCred where
-  getAuthCred = ctxAuthCred
+instance MayHaveAuthCred (JustAuthCred m)
+instance HasAuthCred (JustAuthCred m) where
+  getAuthCred = jacAuthCred
 
 instance MayHaveAuthCred c => MayHaveAuthCred (BlogContext c) where
   maybeGetAuthCred = maybeGetAuthCred . ctx
@@ -175,11 +159,24 @@ instance HasBlogId (BlogContext c) where
   getBlogId = ctxBlog
 
 
-instance N.HasHttpManager JustAPIKey where
-  getHttpManager = ctxManager
+instance HasConfig (JustAPIKey m) where
+  type ConfigBase (JustAPIKey m) = m
+  getConfig = jakConfig
 
-instance N.HasHttpManager JustAuthCred where
-  getHttpManager = ctxManager
+instance HasConfig (JustAuthCred m) where
+  type ConfigBase (JustAuthCred m) = m
+  getConfig = jacConfig
+
+instance HasConfig c => HasConfig (BlogContext c) where
+  type ConfigBase (BlogContext c) = ConfigBase c
+  getConfig = getConfig . ctx
+
+
+instance N.HasHttpManager (JustAPIKey m) where
+  getHttpManager = N.getHttpManager . jakConfig
+
+instance N.HasHttpManager (JustAuthCred m) where
+  getHttpManager = N.getHttpManager . jacConfig
 
 instance N.HasHttpManager c => N.HasHttpManager (BlogContext c) where
   getHttpManager = N.getHttpManager . ctx

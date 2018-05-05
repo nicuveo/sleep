@@ -1,7 +1,6 @@
 name:                sleep
-version:             0.0.0.0
--- synopsis:
--- description:
+version:             0.1.0.0
+synopsis:            A collection of REST API clients
 homepage:            https://github.com/nicuveo/sleep#readme
 author:              Antoine Leblamc
 maintainer:          nicuveo@gmail.com
@@ -34,6 +33,7 @@ library
                        Web.Sleep.Tumblr.Simple
   other-modules:       Web.Sleep.Common.Helpers.Base,
                        Web.Sleep.Common.Helpers.Request,
+                       Web.Sleep.Common.Config,
                        Web.Sleep.Common.Misc,
                        Web.Sleep.Common.Network
   build-depends:       base >= 4.7 && < 5,
@@ -83,6 +83,7 @@ executable tumblr-photo-download
                        http-conduit,
                        mtl,
                        resourcet,
+                       transformers-base,
                        uri-encode
 
 test-suite sleep-test
@@ -102,6 +103,7 @@ test-suite sleep-test
   default-language:    Haskell2010
   other-modules:       Web.Sleep.Common.Helpers.Base,
                        Web.Sleep.Common.Helpers.Request,
+                       Web.Sleep.Common.Config,
                        Web.Sleep.Common.Misc,
                        Web.Sleep.Common.Network,
                        Web.Sleep.Tumblr.Auth,
@@ -158,6 +160,7 @@ test-suite tutorial-check
   other-modules:       Tutorial.Tumblr
                        Web.Sleep.Common.Helpers.Base,
                        Web.Sleep.Common.Helpers.Request,
+                       Web.Sleep.Common.Config,
                        Web.Sleep.Common.Misc
                        Web.Sleep.Common.Network
                        Web.Sleep.Tumblr

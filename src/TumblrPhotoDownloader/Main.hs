@@ -1,5 +1,6 @@
 {-# LANGUAGE DeriveGeneric         #-}
 {-# LANGUAGE FlexibleContexts      #-}
+{-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedStrings     #-}
 
@@ -22,7 +23,7 @@ import           System.Exit
 import           System.FilePath
 import           Text.Printf
 
-import           Web.Sleep.Tumblr
+import           Web.Sleep.Tumblr             hiding (Config)
 import           Web.Sleep.Tumblr.Simple
 
 
@@ -139,5 +140,10 @@ main = logFatalOnException $ do
   createDirectoryIfMissing True $ configOutDir config
   apiKey <- fromString <$> getEnv "TUMBLR_API_KEY"
   mutex  <- lockFile blog
-  lastId <- protect mutex $ runResourceT $ withAPIKey apiKey $ withBlog (BlogId blog) $ downloadPhotos config 0
+  m      <- defaultManager
+  lastId <- protect mutex                         $
+            runResourceT                          $
+            withAPIKey (defaultIOConfig m) apiKey $
+            withBlog (BlogId blog)                $
+            downloadPhotos config 0
   writeConfig blog $ config { configLastId = lastId }

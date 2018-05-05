@@ -94,17 +94,20 @@ module Web.Sleep.Tumblr.Query (
 -- imports
 
 import           Control.Monad.Reader
-import qualified Data.ByteString           as B (ByteString)
-import qualified Data.Map.Strict           as M
+import qualified Data.ByteString                  as B (ByteString)
+import qualified Data.Map.Strict                  as M
 import           Data.String
 import           Data.Time.Clock
 import           Data.Typeable
-import qualified Network.HTTP.Client       as N
-import qualified Network.HTTP.Types.Header as N
-import qualified Network.HTTP.Types.Method as N
-import qualified Network.URI               as N (URI)
-import qualified Network.URI.Encode        as N
+import qualified Network.HTTP.Client              as N
+import qualified Network.HTTP.Types.Header        as N
+import qualified Network.HTTP.Types.Method        as N
+import qualified Network.URI                      as N (URI)
+import qualified Network.URI.Encode               as N
 
+import           Web.Sleep.Common.Config
+import           Web.Sleep.Common.Helpers.Base
+import           Web.Sleep.Common.Helpers.Request
 import           Web.Sleep.Common.Misc
 import           Web.Sleep.Tumblr.Auth
 import           Web.Sleep.Tumblr.Data
@@ -171,7 +174,7 @@ toUnsignedRequest q = if | N.method req == N.methodGet  -> req
 toUnsignedURI :: Query q m -> N.URI
 toUnsignedURI = N.getUri . toUnsignedRequest
 
-toURI :: Monad m => Query q m -> m N.URI
+toURI :: MonadConfig c m => Query q m -> m N.URI
 toURI = fmap N.getUri . toRequest
 
 
@@ -234,8 +237,8 @@ class MayHaveAuthCred a where
   default maybeGetAuthCred :: HasAuthCred a => a -> Maybe AuthCred
   maybeGetAuthCred = Just . getAuthCred
 
-type MonadAuth      c m = (MonadReader c m, MonadSign m, HasAuthCred c)
-type MonadMaybeAuth c m = (MonadReader c m, MonadSign m, HasAPIKey c, MayHaveAuthCred c)
+type MonadAuth      c m = (MonadConfig c m, HasAuthCred c)
+type MonadMaybeAuth c m = (MonadConfig c m, HasAPIKey c, MayHaveAuthCred c)
 
 
 
@@ -420,9 +423,8 @@ postNewText body = asks getBlogId >>= flip postNewBlogText body
 
 qsToBody :: N.Request -> N.Request
 qsToBody req = appendHeader N.hContentType "application/x-www-form-urlencoded" $
-               N.setQueryString [] $
-               setBody qs req
-  where qs = N.queryString req
+               setBody (N.queryString req) $
+               N.setQueryString [] req
 
 mkQuery :: (Monad m, QueryInfo q) => String -> String -> [Parameter] -> m (Query q m)
 mkQuery bid path qs = return resultQuery
@@ -436,6 +438,11 @@ mkQuery bid path qs = return resultQuery
                       QGet  -> N.methodGet
                       QPost -> N.methodPost
 
+addOAuth :: MonadConfig r m => AuthCred -> N.Request -> m N.Request
+addOAuth (oauth, creds) req = do
+  config <- asks getConfig
+  liftBase $ requestSign config oauth creds req
+
 liftMaybeAddAuth :: MonadMaybeAuth c m => m (Query q m) -> m (Query q m)
 liftMaybeAddAuth query = do
   q <- query
@@ -443,11 +450,11 @@ liftMaybeAddAuth query = do
   ma <- asks maybeGetAuthCred
   case ma of
     Nothing -> return $ q { sign = addAPIKey k }
-    Just a  -> return $ q { sign = signOAuth a }
+    Just a  -> return $ q { sign = addOAuth  a }
   where addAPIKey k = return . appendParam ("api_key", k)
 
 liftAddAuth :: MonadAuth c m => m (Query q m) -> m (Query q m)
 liftAddAuth query = do
   q <- query
   a <- asks getAuthCred
-  return $ q { sign = signOAuth a }
+  return $ q { sign = addOAuth a }
