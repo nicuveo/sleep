@@ -54,7 +54,6 @@ type MonadConfig r m = (MonadReader r m, MonadBase m, HasConfig r, Base m ~ Conf
 
 
 
-
 -- default configs
 
 defaultIOConfig :: N.Manager -> Config IO
