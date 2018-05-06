@@ -36,6 +36,7 @@ for f in $FILES ; do
         for ext in $exts ; do
             sed -i "/LANGUAGE $ext/d" $f
             set +e
+            rm -f *.tix
             stack test --fast --ghc-options '-Werror' &> /dev/null
             res=$?
             set -e
