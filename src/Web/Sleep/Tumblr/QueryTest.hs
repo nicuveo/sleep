@@ -48,8 +48,11 @@ instance HasAPIKey TestContext where
 instance HasAPIKey TestAuthContext where
   getAPIKey = APIKey . key2
 
-instance MayHaveAuthCred TestAuthContext
-instance HasAuthCred     TestAuthContext where
+instance MayHaveAuthCred TestContext     where maybeGetAuthCred = noAuthCred
+instance MayHaveAuthCred TestAuthContext where maybeGetAuthCred = justAuthCred
+
+
+instance HasAuthCred TestAuthContext where
   getAuthCred c = ( tumblrOAuth (key2 c) "SECRET"
                   , OA.Credential [("auth_token", token c)]
                   )

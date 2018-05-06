@@ -44,6 +44,8 @@ module Web.Sleep.Tumblr.Query (
   MayHaveAuthCred(..),
   MonadAuth,
   MonadMaybeAuth,
+  noAuthCred,
+  justAuthCred,
 
   -- * Blog info
   getBlogInfo,
@@ -235,17 +237,24 @@ class HasAuthCred a where
 class MayHaveAuthCred a where
   maybeGetAuthCred :: a -> Maybe AuthCred
   default maybeGetAuthCred :: HasAuthCred a => a -> Maybe AuthCred
-  maybeGetAuthCred = Just . getAuthCred
+  maybeGetAuthCred = justAuthCred
 
 type MonadAuth      c m = (MonadConfig c m, HasAuthCred c)
 type MonadMaybeAuth c m = (MonadConfig c m, HasAPIKey c, MayHaveAuthCred c)
 
 
 
--- parameter instances
+-- auth cred instances generation
 
-instance {-# OVERLAPPABLE #-} MayHaveAuthCred a where
-  maybeGetAuthCred = const Nothing
+noAuthCred :: a -> Maybe AuthCred
+noAuthCred = const Nothing
+
+justAuthCred :: HasAuthCred a => a -> Maybe AuthCred
+justAuthCred = Just . getAuthCred
+
+
+
+-- parameter instances
 
 instance HasBlogId BlogId where { getBlogId = id }
 instance HasAPIKey APIKey where { getAPIKey = id }
