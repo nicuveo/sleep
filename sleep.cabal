@@ -12,6 +12,12 @@ cabal-version:       >=1.10
 
 library
   hs-source-dirs:      src
+  default-language:    Haskell2010
+  default-extensions:  MultiParamTypeClasses
+                       FlexibleInstances
+                       FlexibleContexts
+                       TypeFamilies
+                       OverloadedStrings
   ghc-options:         -Wall
                        -Wcompat
                        -Wincomplete-record-updates
@@ -21,7 +27,6 @@ library
                        -fno-warn-unused-do-bind
                        -fwarn-tabs
                        -O2
-  default-language:    Haskell2010
   exposed-modules:     Web.Sleep,
                        Web.Sleep.Tumblr,
                        Web.Sleep.Tumblr.Auth,
@@ -58,6 +63,11 @@ executable tumblr-photo-download
   main-is:             Main.hs
   hs-source-dirs:      src/TumblrPhotoDownloader
   default-language:    Haskell2010
+  default-extensions:  MultiParamTypeClasses
+                       FlexibleInstances
+                       FlexibleContexts
+                       TypeFamilies
+                       OverloadedStrings
   ghc-options:         -Wall
                        -Wcompat
                        -Wincomplete-record-updates
@@ -85,6 +95,12 @@ test-suite sleep-test
   type:                exitcode-stdio-1.0
   hs-source-dirs:      test,src
   main-is:             Tests.hs
+  default-language:    Haskell2010
+  default-extensions:  MultiParamTypeClasses
+                       FlexibleInstances
+                       FlexibleContexts
+                       TypeFamilies
+                       OverloadedStrings
   ghc-options:         -Wall
                        -Wcompat
                        -Wincomplete-record-updates
@@ -95,7 +111,6 @@ test-suite sleep-test
                        -fwarn-tabs
                        -O2
                        -threaded -rtsopts -with-rtsopts=-N -fhpc
-  default-language:    Haskell2010
   other-modules:       Web.Sleep.Common.Helpers.Base,
                        Web.Sleep.Common.Helpers.Request,
                        Web.Sleep.Common.Config,
@@ -136,6 +151,12 @@ test-suite tutorial-check
   type:                exitcode-stdio-1.0
   hs-source-dirs:      src,src/Tutorial
   main-is:             Checker.hs
+  default-language:    Haskell2010
+  default-extensions:  MultiParamTypeClasses
+                       FlexibleInstances
+                       FlexibleContexts
+                       TypeFamilies
+                       OverloadedStrings
   ghc-options:         -Wall
                        -Wcompat
                        -Wincomplete-record-updates
@@ -147,7 +168,6 @@ test-suite tutorial-check
                        -O2
                        -threaded -rtsopts -with-rtsopts=-N -fhpc
                        -pgmL markdown-unlit
-  default-language:    Haskell2010
   other-modules:       Tutorial.Tumblr
                        Web.Sleep.Common.Helpers.Base,
                        Web.Sleep.Common.Helpers.Request,
