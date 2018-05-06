@@ -1,7 +1,3 @@
-{-# LANGUAGE OverloadedStrings #-}
-
-
-
 -- module
 
 module Web.Sleep.Common.Helpers.Request (

@@ -5,10 +5,6 @@ A collection of helpers aiming at providing a good enough out of the box
 experience with the Tumblr API.
 -}
 
-{-# LANGUAGE FlexibleContexts      #-}
-{-# LANGUAGE FlexibleInstances     #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE TypeFamilies          #-}
 
 
 
