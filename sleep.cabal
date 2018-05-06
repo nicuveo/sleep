@@ -2,7 +2,7 @@ name:                sleep
 version:             0.1.0.0
 synopsis:            A collection of REST API clients
 homepage:            https://github.com/nicuveo/sleep#readme
-author:              Antoine Leblamc
+author:              Antoine Leblanc
 maintainer:          nicuveo@gmail.com
 copyright:           2017 Antoine Leblanc
 category:            Web
