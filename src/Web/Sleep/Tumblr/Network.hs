@@ -35,12 +35,12 @@ import           Web.Sleep.Tumblr.Response
 
 -- putting together network and parsing
 
-call  :: (MonadConfig r m, ToRequest q m, Decode (RequestResult q))                     => q -> m (Either Error (RequestResult q))
-callT :: (MonadConfig r m, ToRequest q m, Decode (RequestResult q), MonadThrow m)       => q -> m (RequestResult q)
-callE :: (MonadConfig r m, ToRequest q m, Decode (RequestResult q), MonadError Error m) => q -> m (RequestResult q)
-call  q =                            decode <$> doCall q
-callT q = either throw      return . decode =<< doCall q
-callE q = either throwError return . decode =<< doCall q
+call  :: (MonadConfig r m, ToRequest q m, Decode (RequestResult q))                     => m q -> m (Either Error (RequestResult q))
+callT :: (MonadConfig r m, ToRequest q m, Decode (RequestResult q), MonadThrow m)       => m q -> m (RequestResult q)
+callE :: (MonadConfig r m, ToRequest q m, Decode (RequestResult q), MonadError Error m) => m q -> m (RequestResult q)
+call  q =                            decode <$>(doCall =<< q)
+callT q = either throw      return . decode =<< doCall =<< q
+callE q = either throwError return . decode =<< doCall =<< q
 
 
 

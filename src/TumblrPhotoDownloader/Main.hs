@@ -1,5 +1,8 @@
 {-# LANGUAGE DeriveGeneric #-}
 
+
+-- imports
+
 import           Control.Exception
 import           Control.Monad
 import           Control.Monad.Reader
@@ -114,7 +117,7 @@ downloadPhoto config (pid, index, url) = do
 
 downloadPhotos :: Config -> Int -> SimpleMonad Int
 downloadPhotos config o = do
-  (PostList posts) <- callT =<< getPostsByType PhotoType &= Offset o &= Limit 20
+  (PostList posts) <- callT $ getPostsByType PhotoType &= Offset o &= Limit 20
   let recentEnough = [post | post <- posts, pId (postBase post) > configLastId config]
       remaining = length recentEnough
   when (remaining == 20) $ void $ downloadPhotos config $ o + 20
