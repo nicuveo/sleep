@@ -28,11 +28,14 @@ Nothing fancy here.
 
 module Tutorial.Tumblr where
 
--- import           Data.List              as L
--- import           Control.Exception.Safe
--- import           Control.Monad.Reader
--- import           Data.ByteString
--- import qualified Network.HTTP.Client    as N
+import           Data.List              as L
+import           Control.Exception.Safe
+import           Control.Monad.Reader
+import           Data.ByteString
+import qualified Network.HTTP.Client    as N
+
+-- not needed for normal usage
+import           Web.Sleep.Common.Helpers.Base
 ```
 
 
@@ -42,17 +45,20 @@ There are two main entry points to the library:
   * `Web.Sleep.Tumblr` exports everything you'll need,
   * `Web.Sleep.Tumblr.Simple` exports additional helpers.
 
-```haskell-nope
+```haskell
 import           Web.Sleep.Tumblr
 import           Web.Sleep.Tumblr.Simple
 ```
 
+This 'Simple' header provides some convenient functions for
+prototyping or debugging.
+
 
 ## General design
 
-With that out of the way, let's discuss how the Tumblr API is implemented.  Each
-API function has a corresponding function: to get the posts of a blog, you would
-use `getBlogPosts`, to post a new text entry, you would use `postNewBlogText`.
+Each Tumblr API function has a corresponding Haskell function: to get
+the posts of a blog, you would use `getBlogPosts`, to post a new text
+entry, you would use `postNewBlogText`.
 
 All those functions return a monadic `Query`. You can do two things with those:
   * add optional parameters, using the `&=` operator (see examples below)
@@ -62,12 +68,29 @@ All those functions return a monadic `Query`. You can do two things with those:
     * `callT` returns a `MonadThrow m => m Result`
     * `callE` returns a `MonadError Error m => m Result`
 
-As such, most queries will be of this form:
-`callT =<< getPostsByType AudioPost &= Limit 20`.
+(FIXME: error handling is terrible at this point.)
 
-The monad in which those operations happen has several constraints; but before
-showing how to implement our own, let's have a look at the _simple_ version of
-the API.
+As such, most queries will be of this form:
+`callT $ getPostsByType AudioPost &= Limit 20`.
+
+The monad in which those operations happen has several constraints;
+but before showing how to implement our own, let's have a look at the
+_simple_ version of the API. And even before that, let's talk about
+how the network layer is implemented.
+
+
+## Network
+
+In the common libraries of `Sleep`, you'll find the `NetworkConfig`
+struct. This is what the library expects you to provide, in order to
+implement the network layer. It holds the network manager, and a
+"send" function. It is parameterized by the monad that will be at the
+base of your stack (more on this later).
+
+It is of course meant to be used either in `IO`, for actual network
+calls, or `Identity`, for tests. Two helper functions,
+`defaultIONetworkConfig` and `makeMockNetworkConfig`, provide default
+implenentations for those two cases.
 
 
 ## Simple usage
@@ -79,16 +102,18 @@ by being authentified and signing requests with OAuth. Correspondingly, there
 are two main `Simple` functions: `withAPIkey` and `withAuth`, which run in
 `IO`. Some monad aliases are also defined:
 
-```haskell-nope
-fetchBlogInfo :: APIKey -> IO Blog
-fetchBlogInfo k = withAPIKey k theRequest
-  where theRequest :: SimpleAPIKeyMonad IO Blog
-        theRequest = callT =<< getBlogInfo "datblog.tumblr.com"
+```haskell
 
-fetchBlogFollowers :: AuthCred -> IO BlogSummaryList
-fetchBlogFollowers a = withAuth a theRequest
+fetchBlogInfo :: N.Manager -> APIKey -> IO Blog
+fetchBlogInfo m k = do
+  withAPIKey (defaultIONetworkConfig m) k theRequest
+  where theRequest :: SimpleAPIKeyMonad IO Blog
+        theRequest = callT $ getBlogInfo "datblog.tumblr.com"
+
+fetchBlogFollowers :: N.Manager -> AuthCred -> IO BlogSummaryList
+fetchBlogFollowers m a = withAuth (defaultIONetworkConfig m) a theRequest
   where theRequest :: SimpleAuthCredMonad IO BlogSummaryList
-        theRequest = callT =<< getBlogFollowers "datblog.tumblr.com"
+        theRequest = callT $ getBlogFollowers "datblog.tumblr.com"
 ```
 
 The query functions are defined in such a way that trying to call a fuction that
@@ -103,50 +128,60 @@ For more information on authentication, please see:
 
 ## Creating our custom context
 
-For more interesting use cases, let's see how we could use our own monad to run
-those queries. The most important requirement is for that monad to be an
-instance of `MonadReader`. Let's first define our context, that will contain
-everything we need.
+For more interesting use cases, let's see how we could use our own
+monad to run those queries. The most important requirement is for that
+monad to be an instance of `MonadReader`, and for the context held by
+the reader to provide what we need. Let's define our context:
 
-```haskell-nope
-data Context = Context { apiKey  :: ByteString
-                       , auth    :: AuthCred
-                       , manager :: N.Manager
-                       , blog    :: String
-                       }
+```haskell
+data Context m = Context { apiKey        :: ByteString
+                         , auth          :: AuthCred
+                         , networkConfig :: NetworkConfig m
+                         , blog          :: String
+                         , appData       :: () -- your stuff here
+                         }
 ```
 
-The manager is only required when running in `IO`. A similar context but without
-the manager could be used for test purposes. There are several typeclasses of
-which we need to make our Context an instance, mostly to retrieve those fields.
+There are several typeclasses of which we need to make our Context an
+instance, mostly to retrieve those fields.
 
-To start with, our context has an http manager:
+To start with, our context has a `NetworkConfig`:
 
-```haskell-nope
-instance N.HasHttpManager Context where
-  getHttpManager = manager
+```haskell
+instance HasNetworkConfig (Context m) where
+  type NetworkConfigBase (Context m) = m
+  getNetworkConfig = networkConfig
 ```
 
 It also provides an API key:
 
-```haskell-nope
-instance HasAPIKey Context where
+```haskell
+instance HasAPIKey (Context m) where
   getAPIKey = APIKey . apiKey
 ```
 
-For authentication, two instances. `MayHaveAuthCred` has a default
-implementation that makes use of the `HasAuthCred` instance.
+For authentication, two typeclasses to implement. Some API functions
+require authentication, and will require your type to implement
+`HasAuthCred`; the others will use authentication info only if it is
+present, and would only require you to implement `MayHaveAuthCred`, if
+it didn't already have a default overlappable instance for all types
+`a`, which -simply returns `Nothing`. But here, we are authentified,
+and we can return an -AuthCred in both cases.
 
-`MayHaveAuthCred a` has only one function, `maybeGetAuthCred :: a -> Maybe
-AuthCred`, which is used in all functions that do not necessarily require
-authentication. It has a default overlappable instance for all types `a`, which
-simply returns `Nothing`. But here, we are authentified, and we can return an
-AuthCred in both cases.
 
-```haskell-nope
-instance MayHaveAuthCred Context
-instance HasAuthCred Context where
+
+```haskell
+-- our context has auth info
+
+instance MayHaveAuthCred (Context m)
+instance HasAuthCred (Context m) where
   getAuthCred = auth
+
+
+-- another context, without auth info
+-- uses the global MayHaveAuthCred instance
+
+data NoAuthContext = NoAuthContext
 ```
 
 Finally, this one is for convenience. All blog query functions have two
@@ -155,8 +190,8 @@ from the current context: `getBlogPosts` versus `getPosts`. The `Simple` API
 also defines a wrapper around `withReaderT`, `withBlog` that allows one to
 locally add a blog name to a given context.
 
-```haskell-nope
-instance HasBlogId Context where
+```haskell
+instance HasBlogId (Context m) where
   getBlogId = BlogId . blog
 ```
 
@@ -165,79 +200,56 @@ instance HasBlogId Context where
 
 Nothing more is needed than:
 
-```haskell-nope
-type BaseTumblrMonad = ReaderT Context
+```haskell
+type MyTumblrMonad m = ReaderT (Context m) m
 ```
 
-but if you prefer to wrap in a `newtype`, you could do the following:
-
-```haskell-nope
-newtype MyTumblrMonad m a = MyTumblrMonad {
-  run :: BaseTumblrMonad m a
-  } deriving (Functor,
-              Applicative,
-              Monad,
-              MonadTrans,
-              MonadThrow,
-              MonadReader Context,
-              MonadIO)
-```
-
-Out of those, the only monad that is specific to Sleep is `MonadSign`. What this
-one does is abstract the oauth request signing process. Two instances are
-defined: one for `IO`, which does the actual signing, and one for `Identity`,
-intended for test purposes, which just adds parameters to the query
-string. Instances are also defined for all usual monad transformers, meaning you
-can simply derive `MonadSign`, and it'll simply forward to the monad at the base
-of your stack.
-
-Another monad for which we'll need to do some deriving is `HasNetwork`. It is
-the one that abstracts the actual network connection. It is already defined for
-`IO` and for all monad transformers, but sadly cannot be automagically
-derived. You'll need to add the following:
-
-
-```haskell-nope
--- instance HasNetwork Context m => HasNetwork Context (MyTumblrMonad m)
-```
-
-No instance of `HasNetwork` exists for `Identity`, but you can add your own for
-test purposes:
-
-
-```haskell-nope
--- instance HasNetwork Context Identity where
---     send :: Context -> N.Request -> Identity (N.Response B.ByteString)
---     send _ = return $ error "implement some mock behaviour here"
-```
-
+but you can of course add more transformers to that stack.
 
 
 ## Putting it together
 
 We can directly use our monad with IO:
 
-```haskell-nope
+```haskell
 createTextPost :: String -> MyTumblrMonad IO ()
-createTextPost content = callT =<< postNewText content &= Title "An update!"
+createTextPost content = callT $ postNewText content &= Title "An update!"
 ```
 
-If we want to abstract the monad at the bottom of the stack, for test purposes,
-we'll need to explicitly list all the requirements on `m`:
+If we want to abstract the monad at the bottom of the stack, we'll
+need to explicitly list all the requirements on `m`:
 
-```haskell-nope
-hasDrafts :: (MonadThrow m) => MyTumblrMonad m Bool
+```haskell
+hasDrafts :: ( MonadReader      r m         -- this monad m carries a context r
+             , MonadThrow         m         -- this monad m handles exception
+             , MonadBase          m         -- this monad m knows what lies at the bottom of the stack (IO or Identity)
+             , HasNetworkConfig r           -- this context r holds a network config
+             , HasAuthCred      r           -- this context r holds some authentication credentials
+             , Base m ~ NetworkConfigBase r -- the network config is in the monad which is the base of the stack
+             ) => m Bool                    -- this function returns a boolean value if this monad
 hasDrafts = do
-  (PostList drafts) <- callT =<< getDraftPosts
+  (PostList drafts) <- callT $ getBlogDraftPosts "example.tumblr.com"
   return $ not $ L.null drafts
 ```
 
-But some aliases are defined for each call function:
-  * `call  -> MonadTumblrCall`
-  * `callT -> MonadTumblrCallT`
-  * `callE -> MonadTumblrCallE`
+This is quite unwieldy, let's break it down.
 
-```haskell-nope
-getLastTenTextPosts :: Monad m => MyTumblrMonad m (Either Error PostList)
-getLastTenTextPosts = call =<< getPostsByType TextType &= Limit 10
+`MonadReader`, `MonadBase`, and `HasNetworkConfig` are all required
+because we want our context to provide the network configuration. An
+alias is defined, `MonadNetwork`, to mean exactly that.
+
+`MonadReader` and `HasAuthCred` are required because the function
+`getDraftPosts` requires the context to provide authentication. An
+other alias is defined, `MonadAuth`, for just this purpose.
+
+Thanks to those, a generic function such as the one above could be rewritten as:
+
+```haskell
+hasDrafts2 :: ( MonadNetwork r m  -- this monad m carries a context r which provides a network config
+              , MonadAuth    r m  -- this monad m carries a context r which provides authentication
+              , MonadThrow     m  -- this monad m handles exception
+              ) => m Bool
+hasDrafts2 = do
+  (PostList drafts) <- callT $ getBlogDraftPosts "example.tumblr.com"
+  return $ not $ L.null drafts
 ```
