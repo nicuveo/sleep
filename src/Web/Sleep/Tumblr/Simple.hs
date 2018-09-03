@@ -41,7 +41,7 @@ import           Data.ByteString.Char8         (pack)
 import qualified Network.HTTP.Client           as N
 import qualified Web.Authenticate.OAuth        as OA
 
-import           Web.Sleep.Common.Config
+import           Web.Sleep.Common.Network
 import           Web.Sleep.Common.Helpers.Base
 import           Web.Sleep.Tumblr
 
@@ -63,18 +63,18 @@ type SimpleAuthCredBlogMonad m = ReaderT (BlogContext (JustAuthCred (Base m))) m
    'N.Manager'. Due to not having an authentication token, this can only be used
    to run unauthentified queries.
 
-   > withApiKey key $ callT =<< getBlogInfo "myblog.tumblr.com"
+   > withApiKey networkLayer key $ callT $ getBlogInfo "myblog.tumblr.com"
 -}
-withAPIKey :: Config (Base m) -> APIKey -> SimpleAPIKeyMonad m r -> m r
-withAPIKey conf key e = runReaderT e $ JustAPIKey conf key
+withAPIKey :: NetworkConfig (Base m) -> APIKey -> SimpleAPIKeyMonad m r -> m r
+withAPIKey nl key e = runReaderT e $ JustAPIKey nl key
 
 {- | Similar to 'withAPIKey', except that it carries an authentication token
    instead of only having the key. All queries can therefore be used.
 
-   > withAuth credentials $ callT =<< postNewBlogText "myblog.tumblr.com" "test"
+   > withAuth networkLayer credentials $ callT =<< postNewBlogText "myblog.tumblr.com" "test"
 -}
-withAuth :: Config (Base m) -> AuthCred -> SimpleAuthCredMonad m r -> m r
-withAuth conf auth e = runReaderT e $ JustAuthCred conf auth
+withAuth :: NetworkConfig (Base m) -> AuthCred -> SimpleAuthCredMonad m r -> m r
+withAuth nl auth e = runReaderT e $ JustAuthCred nl auth
 
 {- | A wrapper around 'withReaderT' that adds a blog id to the current context,
    allowing you to use the query variants that do not explictly need the blog
@@ -125,8 +125,8 @@ getSimpleDebugAuthCred callback oauth = do
 
 -- internal simple contexts
 
-data JustAPIKey   m = JustAPIKey   { jakConfig :: Config m, jakAPIKey   :: APIKey   }
-data JustAuthCred m = JustAuthCred { jacConfig :: Config m, jacAuthCred :: AuthCred }
+data JustAPIKey   m = JustAPIKey   { jakNetworkConfig :: NetworkConfig m, jakAPIKey   :: APIKey   }
+data JustAuthCred m = JustAuthCred { jacNetworkConfig :: NetworkConfig m, jacAuthCred :: AuthCred }
 data BlogContext  c = BlogContext  { ctxBlog :: BlogId, ctx :: c }
 
 
@@ -156,24 +156,24 @@ instance HasBlogId (BlogContext c) where
   getBlogId = ctxBlog
 
 
-instance HasConfig (JustAPIKey m) where
-  type ConfigBase (JustAPIKey m) = m
-  getConfig = jakConfig
+instance HasNetworkConfig (JustAPIKey m) where
+  type NetworkConfigBase (JustAPIKey m) = m
+  getNetworkConfig = jakNetworkConfig
 
-instance HasConfig (JustAuthCred m) where
-  type ConfigBase (JustAuthCred m) = m
-  getConfig = jacConfig
+instance HasNetworkConfig (JustAuthCred m) where
+  type NetworkConfigBase (JustAuthCred m) = m
+  getNetworkConfig = jacNetworkConfig
 
-instance HasConfig c => HasConfig (BlogContext c) where
-  type ConfigBase (BlogContext c) = ConfigBase c
-  getConfig = getConfig . ctx
+instance HasNetworkConfig c => HasNetworkConfig (BlogContext c) where
+  type NetworkConfigBase (BlogContext c) = NetworkConfigBase c
+  getNetworkConfig = getNetworkConfig . ctx
 
 
 instance N.HasHttpManager (JustAPIKey m) where
-  getHttpManager = N.getHttpManager . jakConfig
+  getHttpManager = N.getHttpManager . jakNetworkConfig
 
 instance N.HasHttpManager (JustAuthCred m) where
-  getHttpManager = N.getHttpManager . jacConfig
+  getHttpManager = N.getHttpManager . jacNetworkConfig
 
 instance N.HasHttpManager c => N.HasHttpManager (BlogContext c) where
   getHttpManager = N.getHttpManager . ctx

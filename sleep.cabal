@@ -30,15 +30,14 @@ library
   exposed-modules:     Web.Sleep,
                        Web.Sleep.Tumblr,
                        Web.Sleep.Tumblr.Auth,
+                       Web.Sleep.Tumblr.Call,
                        Web.Sleep.Tumblr.Data,
                        Web.Sleep.Tumblr.Error,
-                       Web.Sleep.Tumblr.Network,
                        Web.Sleep.Tumblr.Query,
                        Web.Sleep.Tumblr.Response,
                        Web.Sleep.Tumblr.Simple
   other-modules:       Web.Sleep.Common.Helpers.Base,
                        Web.Sleep.Common.Helpers.Request,
-                       Web.Sleep.Common.Config,
                        Web.Sleep.Common.Misc,
                        Web.Sleep.Common.Network
   build-depends:       base >= 4.7 && < 5,
@@ -113,14 +112,14 @@ test-suite sleep-test
                        -threaded -rtsopts -with-rtsopts=-N -fhpc
   other-modules:       Web.Sleep.Common.Helpers.Base,
                        Web.Sleep.Common.Helpers.Request,
-                       Web.Sleep.Common.Config,
+                       Web.Sleep.Common.Network,
                        Web.Sleep.Common.Misc,
                        Web.Sleep.Common.Network,
                        Web.Sleep.Tumblr.Auth,
+                       Web.Sleep.Tumblr.Call,
                        Web.Sleep.Tumblr.Data,
                        Web.Sleep.Tumblr.DataTest,
                        Web.Sleep.Tumblr.Error,
-                       Web.Sleep.Tumblr.Network,
                        Web.Sleep.Tumblr.Query,
                        Web.Sleep.Tumblr.QueryTest,
                        Web.Sleep.Tumblr.Response,
@@ -171,14 +170,13 @@ test-suite tutorial-check
   other-modules:       Tutorial.Tumblr
                        Web.Sleep.Common.Helpers.Base,
                        Web.Sleep.Common.Helpers.Request,
-                       Web.Sleep.Common.Config,
                        Web.Sleep.Common.Misc
                        Web.Sleep.Common.Network
                        Web.Sleep.Tumblr
                        Web.Sleep.Tumblr.Auth
+                       Web.Sleep.Tumblr.Call
                        Web.Sleep.Tumblr.Data
                        Web.Sleep.Tumblr.Error
-                       Web.Sleep.Tumblr.Network
                        Web.Sleep.Tumblr.Query
                        Web.Sleep.Tumblr.Response
                        Web.Sleep.Tumblr.Simple

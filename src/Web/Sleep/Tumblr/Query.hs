@@ -100,13 +100,12 @@ import qualified Network.HTTP.Types.Method        as N
 import qualified Network.URI                      as N (URI)
 import qualified Network.URI.Encode               as N
 
-import           Web.Sleep.Common.Config
+import           Web.Sleep.Common.Network
 import           Web.Sleep.Common.Helpers.Base
 import           Web.Sleep.Common.Helpers.Request
 import           Web.Sleep.Common.Misc
 import           Web.Sleep.Tumblr.Auth
 import           Web.Sleep.Tumblr.Data
-import           Web.Sleep.Tumblr.Network
 
 
 
@@ -169,7 +168,7 @@ toUnsignedRequest q = if | N.method req == N.methodGet  -> req
 toUnsignedURI :: Query q m -> N.URI
 toUnsignedURI = N.getUri . toUnsignedRequest
 
-toURI :: MonadConfig c m => Query q m -> m N.URI
+toURI :: MonadNetwork c m => Query q m -> m N.URI
 toURI = fmap N.getUri . toRequest
 
 
@@ -232,8 +231,8 @@ class MayHaveAuthCred a where
   default maybeGetAuthCred :: HasAuthCred a => a -> Maybe AuthCred
   maybeGetAuthCred = justAuthCred
 
-type MonadAuth      c m = (MonadConfig c m, HasAuthCred c)
-type MonadMaybeAuth c m = (MonadConfig c m, HasAPIKey c, MayHaveAuthCred c)
+type MonadAuth      c m = (MonadNetwork c m, HasAuthCred c)
+type MonadMaybeAuth c m = (MonadNetwork c m, HasAPIKey c, MayHaveAuthCred c)
 
 
 
@@ -440,9 +439,9 @@ mkQuery bid path qs = return resultQuery
                       QGet  -> N.methodGet
                       QPost -> N.methodPost
 
-addOAuth :: MonadConfig r m => AuthCred -> N.Request -> m N.Request
+addOAuth :: MonadNetwork r m => AuthCred -> N.Request -> m N.Request
 addOAuth (oauth, creds) req = do
-  config <- asks getConfig
+  config <- asks getNetworkConfig
   liftBase $ requestSign config oauth creds req
 
 liftMaybeAddAuth :: MonadMaybeAuth c m => m (Query q m) -> m (Query q m)

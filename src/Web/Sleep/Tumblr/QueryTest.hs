@@ -13,7 +13,7 @@ import           Test.Tasty
 import           Test.Tasty.HUnit
 import qualified Web.Authenticate.OAuth  as OA
 
-import           Web.Sleep.Common.Config
+import           Web.Sleep.Common.Network
 import           Web.Sleep.Common.Misc
 import           Web.Sleep.Tumblr.Auth
 import           Web.Sleep.Tumblr.Query
@@ -22,17 +22,17 @@ import           Web.Sleep.Tumblr.Query
 
 -- helpers
 
-data TestContext     = TestContext     { c1 :: Config Identity, key1 :: ByteString }
-data TestAuthContext = TestAuthContext { c2 :: Config Identity, key2 :: ByteString, token :: ByteString }
+data TestContext     = TestContext     { c1 :: NetworkConfig Identity, key1 :: ByteString }
+data TestAuthContext = TestAuthContext { c2 :: NetworkConfig Identity, key2 :: ByteString, token :: ByteString }
 
 
-instance HasConfig TestContext where
-  type ConfigBase TestContext = Identity
-  getConfig = c1
+instance HasNetworkConfig TestContext where
+  type NetworkConfigBase TestContext = Identity
+  getNetworkConfig = c1
 
-instance HasConfig TestAuthContext where
-  type ConfigBase TestAuthContext = Identity
-  getConfig = c2
+instance HasNetworkConfig TestAuthContext where
+  type NetworkConfigBase TestAuthContext = Identity
+  getNetworkConfig = c2
 
 
 instance HasAPIKey TestContext where
@@ -54,12 +54,12 @@ instance HasAuthCred TestAuthContext where
 type TestMonad c = ReaderT c Identity
 
 testCtx :: ByteString -> TestContext
-testCtx = TestContext $ makeMockConfig []
+testCtx = TestContext $ makeMockNetworkConfig []
 
 testAuthCtx :: ByteString -> ByteString -> TestAuthContext
-testAuthCtx = TestAuthContext $ makeMockConfig []
+testAuthCtx = TestAuthContext $ makeMockNetworkConfig []
 
-u :: MonadConfig c (TestMonad c) => c -> TestMonad c (Query q (TestMonad c)) -> String
+u :: MonadNetwork c (TestMonad c) => c -> TestMonad c (Query q (TestMonad c)) -> String
 u c q = show $ runIdentity $ with c $ toURI =<< q
 
 

@@ -61,8 +61,8 @@ import qualified Network.HTTP.Types.Header as N
 import qualified Network.URI               as N
 
 import           Web.Sleep.Common.Misc
+import           Web.Sleep.Tumblr.Call
 import           Web.Sleep.Tumblr.Error
-import           Web.Sleep.Tumblr.Network
 import           Web.Sleep.Tumblr.Response
 
 

@@ -28,8 +28,8 @@ import           Test.Tasty.HUnit
 import           Test.Tasty.QuickCheck
 
 import           Web.Sleep.Common.Misc
+import           Web.Sleep.Tumblr.Call
 import           Web.Sleep.Tumblr.Data
-import           Web.Sleep.Tumblr.Network
 
 
 

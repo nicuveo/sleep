@@ -4,8 +4,7 @@
 
 -- module
 
-module Web.Sleep.Tumblr.Network (
-  module Web.Sleep.Common.Config,
+module Web.Sleep.Tumblr.Call (
   module Web.Sleep.Common.Network,
   call,
   callT,
@@ -25,7 +24,6 @@ import           Data.Aeson                    (FromJSON)
 import           Data.ByteString.Lazy
 import qualified Network.HTTP.Client           as N
 
-import           Web.Sleep.Common.Config
 import           Web.Sleep.Common.Helpers.Base
 import           Web.Sleep.Common.Network
 import           Web.Sleep.Tumblr.Error
@@ -35,9 +33,9 @@ import           Web.Sleep.Tumblr.Response
 
 -- putting together network and parsing
 
-call  :: (MonadConfig r m, ToRequest q m, Decode (RequestResult q))                     => m q -> m (Either Error (RequestResult q))
-callT :: (MonadConfig r m, ToRequest q m, Decode (RequestResult q), MonadThrow m)       => m q -> m (RequestResult q)
-callE :: (MonadConfig r m, ToRequest q m, Decode (RequestResult q), MonadError Error m) => m q -> m (RequestResult q)
+call  :: (MonadNetwork r m, ToRequest q m, Decode (RequestResult q))                     => m q -> m (Either Error (RequestResult q))
+callT :: (MonadNetwork r m, ToRequest q m, Decode (RequestResult q), MonadThrow m)       => m q -> m (RequestResult q)
+callE :: (MonadNetwork r m, ToRequest q m, Decode (RequestResult q), MonadError Error m) => m q -> m (RequestResult q)
 call  q =                            decode <$>(doCall =<< q)
 callT q = either throw      return . decode =<< doCall =<< q
 callE q = either throwError return . decode =<< doCall =<< q
@@ -60,8 +58,8 @@ decodeJSON = getResponse . N.responseBody
 
 -- helper
 
-doCall :: (MonadConfig r m, ToRequest q m) => q -> m (N.Response ByteString)
+doCall :: (MonadNetwork r m, ToRequest q m) => q -> m (N.Response ByteString)
 doCall q = do
-  config  <- asks getConfig
+  config  <- asks getNetworkConfig
   request <- toRequest q
   liftBase $ networkSend config request
