@@ -139,9 +139,8 @@ instance HasAPIKey (JustAuthCred m) where
 instance HasAPIKey c => HasAPIKey (BlogContext c) where
   getAPIKey = getAPIKey . ctx
 
-instance MayHaveAuthCred (JustAPIKey   m) where maybeGetAuthCred = noAuthCred
-instance MayHaveAuthCred (JustAuthCred m) where maybeGetAuthCred = justAuthCred
 
+instance MayHaveAuthCred (JustAuthCred m)
 instance HasAuthCred (JustAuthCred m) where
   getAuthCred = jacAuthCred
 
