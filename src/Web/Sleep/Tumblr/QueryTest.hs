@@ -63,8 +63,6 @@ u c q = show $ runIdentity $ with c $ toURI =<< q
 
 -- tests
 
-
-
 tests :: TestTree
 tests = testGroup "Web.Sleep.Tumblr.Query" list
   where list = [ testGetBlogPosts
