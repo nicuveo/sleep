@@ -11,7 +11,6 @@ import           Control.Monad.Trans.Class
 import           Control.Monad.Trans.Cont
 import           Control.Monad.Trans.Except
 import           Control.Monad.Trans.Identity
-import           Control.Monad.Trans.List
 import           Control.Monad.Trans.Maybe
 import           Control.Monad.Trans.Reader
 import           Control.Monad.Trans.Resource
@@ -41,7 +40,6 @@ instance MonadBase Identity   where { type Base Identity   = Identity; liftBase 
 
 instance MonadBase m => MonadBase (IdentityT  m)  where type Base (IdentityT  m) = Base m
 instance MonadBase m => MonadBase (MaybeT     m)  where type Base (MaybeT     m) = Base m
-instance MonadBase m => MonadBase (ListT      m)  where type Base (ListT      m) = Base m
 instance MonadBase m => MonadBase (ReaderT  r m)  where type Base (ReaderT  r m) = Base m
 instance MonadBase m => MonadBase (L.StateT s m)  where type Base (L.StateT s m) = Base m
 instance MonadBase m => MonadBase (S.StateT s m)  where type Base (S.StateT s m) = Base m
