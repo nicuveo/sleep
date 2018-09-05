@@ -24,7 +24,8 @@ import           Data.Aeson                    (FromJSON)
 import           Data.ByteString.Lazy
 import qualified Network.HTTP.Client           as N
 
-import           Web.Sleep.Common.Helpers.Base
+import           Web.Sleep.Libs.Base
+
 import           Web.Sleep.Common.Network
 import           Web.Sleep.Tumblr.Error
 import           Web.Sleep.Tumblr.Response

@@ -36,8 +36,8 @@ library
                        Web.Sleep.Tumblr.Query,
                        Web.Sleep.Tumblr.Response,
                        Web.Sleep.Tumblr.Simple
-  other-modules:       Web.Sleep.Common.Helpers.Base,
-                       Web.Sleep.Common.Helpers.Request,
+  other-modules:       Web.Sleep.Libs.Base,
+                       Web.Sleep.Libs.Request,
                        Web.Sleep.Common.Misc,
                        Web.Sleep.Common.Network
   build-depends:       base >= 4.7 && < 5,
@@ -111,8 +111,8 @@ test-suite sleep-test
                        -fwarn-tabs
                        -O2
                        -threaded -rtsopts -with-rtsopts=-N -fhpc
-  other-modules:       Web.Sleep.Common.Helpers.Base,
-                       Web.Sleep.Common.Helpers.Request,
+  other-modules:       Web.Sleep.Libs.Base,
+                       Web.Sleep.Libs.Request,
                        Web.Sleep.Common.Network,
                        Web.Sleep.Common.Misc,
                        Web.Sleep.Common.Network,
@@ -169,8 +169,8 @@ test-suite tutorial-check
                        -threaded -rtsopts -with-rtsopts=-N -fhpc
                        -pgmL markdown-unlit
   other-modules:       Tutorial.Tumblr
-                       Web.Sleep.Common.Helpers.Base,
-                       Web.Sleep.Common.Helpers.Request,
+                       Web.Sleep.Libs.Base,
+                       Web.Sleep.Libs.Request,
                        Web.Sleep.Common.Misc
                        Web.Sleep.Common.Network
                        Web.Sleep.Tumblr

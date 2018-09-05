@@ -27,8 +27,8 @@ import qualified Network.HTTP.Client              as N
 import qualified Network.HTTP.Client.TLS          as N
 import qualified Web.Authenticate.OAuth           as OA
 
-import           Web.Sleep.Common.Helpers.Base
-import           Web.Sleep.Common.Helpers.Request
+import           Web.Sleep.Libs.Base
+import           Web.Sleep.Libs.Request
 
 
 

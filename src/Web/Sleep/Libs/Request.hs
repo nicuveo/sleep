@@ -1,6 +1,6 @@
 -- module
 
-module Web.Sleep.Common.Helpers.Request (
+module Web.Sleep.Libs.Request (
   appendParam,
   appendParams,
   appendHeader,

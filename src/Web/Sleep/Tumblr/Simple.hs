@@ -41,8 +41,9 @@ import           Data.ByteString.Char8         (pack)
 import qualified Network.HTTP.Client           as N
 import qualified Web.Authenticate.OAuth        as OA
 
+import           Web.Sleep.Libs.Base
+
 import           Web.Sleep.Common.Network
-import           Web.Sleep.Common.Helpers.Base
 import           Web.Sleep.Tumblr
 
 

@@ -35,7 +35,7 @@ import           Data.ByteString
 import qualified Network.HTTP.Client    as N
 
 -- not needed for normal usage
-import           Web.Sleep.Common.Helpers.Base
+import           Web.Sleep.Libs.Base
 ```
 
 

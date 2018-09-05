@@ -2,10 +2,7 @@
 
 
 
-
--- module
-
-module Web.Sleep.Common.Helpers.Base where
+module Web.Sleep.Libs.Base where
 
 import           Control.Monad.Trans.Class
 import           Control.Monad.Trans.Cont
@@ -21,8 +18,6 @@ import qualified Control.Monad.Trans.State.Strict  as S
 import qualified Control.Monad.Trans.Writer.Lazy   as L
 import qualified Control.Monad.Trans.Writer.Strict as S
 import           Data.Functor.Identity
--- import Control.Monad.Trans.Accum
--- import Control.Monad.Trans.Select
 
 
 class Monad m => MonadBase m where
@@ -46,13 +41,11 @@ instance MonadBase m => MonadBase (S.StateT s m)  where type Base (S.StateT s m)
 instance MonadBase m => MonadBase (ContT    r m)  where type Base (ContT    r m) = Base m
 instance MonadBase m => MonadBase (ExceptT  e m)  where type Base (ExceptT  e m) = Base m
 instance MonadBase m => MonadBase (ResourceT  m)  where type Base (ResourceT  m) = Base m
--- instance MonadBase m => MonadBase (SelectT  r m)  where type Base (SelectT  r m) = Base m
 
 instance (Monoid w, MonadBase m) => MonadBase (L.WriterT w     m) where type Base (L.WriterT w     m) = Base m
 instance (Monoid w, MonadBase m) => MonadBase (S.WriterT w     m) where type Base (S.WriterT w     m) = Base m
 instance (Monoid w, MonadBase m) => MonadBase (L.RWST    r w s m) where type Base (L.RWST    r w s m) = Base m
 instance (Monoid w, MonadBase m) => MonadBase (S.RWST    r w s m) where type Base (S.RWST    r w s m) = Base m
--- instance (Monoid w, MonadBase m) => MonadBase (AccumT    w     m) where type Base (AccumT    w     m) = Base m
 
 
 liftDefault :: (MonadTrans t, MonadBase b, m ~ t b, Base m ~ Base b) => Base m a -> m a
