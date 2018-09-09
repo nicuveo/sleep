@@ -245,8 +245,7 @@ other alias is defined, `MonadAuth`, for just this purpose.
 Thanks to those, a generic function such as the one above could be rewritten as:
 
 ```haskell
-hasDrafts2 :: ( MonadNetwork r m  -- this monad m carries a context r which provides a network config
-              , MonadAuth    r m  -- this monad m carries a context r which provides authentication
+hasDrafts2 :: ( MonadAuth    r m  -- this monad m carries a context r which provides authentication and a network config
               , MonadThrow     m  -- this monad m handles exception
               ) => m Bool
 hasDrafts2 = do
