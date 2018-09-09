@@ -29,6 +29,7 @@ module Web.Sleep.Tumblr.Simple (
   getSimpleAuthCred,
   getSimpleAuthCredM,
   getSimpleDebugAuthCred,
+  checkAuthValidity
 
   ) where
 
@@ -121,6 +122,11 @@ getSimpleDebugAuthCred :: MonadIO m => URLCallback m -> OAuth -> m AuthCred
 getSimpleDebugAuthCred callback oauth = do
   manager <- defaultManager
   getSimpleAuthCred callback manager oauth
+
+checkAuthValidity :: MonadMaybeAuth r m => m Bool
+checkAuthValidity = do
+  res <- call $ getBlogInfo "test.tumblr.com"
+  return $ either (== undefined) (const False) res
 
 
 
