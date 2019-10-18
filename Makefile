@@ -1,7 +1,7 @@
 build:
 	stack build --ghc-options '${ghc-options}'
 
-test:
+test: build
 	rm -f *.tix
 	stack test  --ghc-options '${ghc-options}' --fast
 
@@ -10,7 +10,7 @@ watch:
 	stack test  --ghc-options '${ghc-options}' --fast --file-watch
 
 lint:
-	hlint src --no-exit-code
+	hlint src apps --no-exit-code
 
 doc:
 	stack haddock
@@ -23,15 +23,15 @@ imports:
 	./scripts/imports_graph.sh | dot -Tpng -o imports_graph.png
 
 report: test
-	mkdir -p test/report
-	cd test/report && \
+	mkdir -p tests/report
+	cd tests/report && \
 	hpc report ../../sleep-test.tix --srcdir=../.. --exclude=Main && \
 	hpc markup ../../sleep-test.tix --srcdir=../.. --exclude=Main
 
 clean:
 	rm -f *.tix
 	rm -f imports.png
-	rm -Rf test/report
+	rm -Rf tests/report
 	stack clean
 
 all: lint report

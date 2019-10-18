@@ -1,0 +1,83 @@
+name:     sleep
+version:  0.1.0
+synopsis: A collection of REST API clients
+gtihub:   nicuveo/sleep
+
+
+ghc-options:
+  - -Wall
+  - -Wcompat
+  - -Wincomplete-record-updates
+  - -Wincomplete-uni-patterns
+  - -Wredundant-constraints
+  - -fwarn-tabs
+  - -fno-warn-type-defaults
+
+dependencies:
+  - base >= 4.7 && < 5
+  - aeson
+  - authenticate-oauth
+  - bytestring
+  - containers
+  - http-client
+  - http-client-tls
+  - http-types
+  - mtl
+  - network-uri
+  - resourcet
+  - safe-exceptions
+  - text
+  - time
+  - transformers
+  - uri-encode
+  - vector
+
+default-extensions:
+  - MultiParamTypeClasses
+  - FlexibleInstances
+  - FlexibleContexts
+  - TypeFamilies
+  - OverloadedStrings
+
+
+library:
+  source-dirs: src
+
+
+executables:
+  tumblr-photo-download:
+    source-dirs: apps/tpd
+    main: Main.hs
+    ghc-options:
+      - -O2
+      - -threaded -rtsopts -with-rtsopts=-N
+    dependencies:
+      - sleep
+      - conduit
+      - conduit-extra
+      - directory
+      - filepath
+      - http-conduit
+      - mtl
+      - resourcet
+
+
+tests:
+  tumblr-tests:
+    source-dirs: tests/tumblr
+    main: Tests.hs
+    ghc-options:
+      - -O2
+      - -threaded -rtsopts -with-rtsopts=-N -fhpc
+    dependencies:
+      - sleep
+      - QuickCheck
+      - tasty
+      - tasty-hunit
+      - tasty-quickcheck
+
+  tutorial-tests:
+    source-dirs: tests/tumblr
+    main: Main.hs
+    dependencies:
+      - sleep
