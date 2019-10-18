@@ -1,7 +1,7 @@
 build:
 	stack build --ghc-options '${ghc-options}'
 
-test: build
+test:
 	rm -f *.tix
 	stack test  --ghc-options '${ghc-options}' --fast
 
@@ -25,8 +25,8 @@ imports:
 report: test
 	mkdir -p tests/report
 	cd tests/report && \
-	hpc report ../../sleep-test.tix --srcdir=../.. --exclude=Main && \
-	hpc markup ../../sleep-test.tix --srcdir=../.. --exclude=Main
+	hpc report ../../tumblr-tests.tix --srcdir=../.. --exclude=Main && \
+	hpc markup ../../tumblr-tests.tix --srcdir=../.. --exclude=Main
 
 clean:
 	rm -f *.tix

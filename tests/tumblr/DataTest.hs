@@ -1,12 +1,11 @@
 {-# LANGUAGE ScopedTypeVariables #-}
-
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
 
 
 -- module
 
-module Web.Sleep.Tumblr.DataTest (tests) where
+module DataTest (tests) where
 
 
 

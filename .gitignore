@@ -19,7 +19,7 @@ cabal.sandbox.config
 .stack-work/
 cabal.project.local
 .HTF/
-test/report
+tests/report
 imports_graph.png
 .dir-locals.el
 sleep.cabal

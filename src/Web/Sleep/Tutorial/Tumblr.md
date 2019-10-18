@@ -26,7 +26,7 @@ Nothing fancy here.
 {-# LANGUAGE MultiParamTypeClasses      #-}
 {-# LANGUAGE OverloadedStrings          #-}
 
-module Tutorial.Tumblr where
+module Web.Sleep.Tutorial.Tumblr where
 
 import           Data.List              as L
 import           Control.Exception.Safe

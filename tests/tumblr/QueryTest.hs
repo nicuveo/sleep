@@ -1,6 +1,6 @@
 -- module
 
-module Web.Sleep.Tumblr.QueryTest (tests) where
+module QueryTest (tests) where
 
 
 
@@ -75,11 +75,11 @@ testGetBlogPosts = testGroup "getBlogPosts" cases
                   , testCase "auth: yes, args:  no" $ expect3 @=? actual3
                   , testCase "auth: yes, args: yes" $ expect4 @=? actual4
                   ]
-        expect1 = "http://api.tumblr.com:80/v2/blog/test1.tumblr.com/posts?api_key=KEY1"
+        expect1 = "http://api.tumblr.com/v2/blog/test1.tumblr.com/posts?api_key=KEY1"
         actual1 = u (testCtx "KEY1") $ getBlogPosts "test1.tumblr.com"
-        expect2 = "http://api.tumblr.com:80/v2/blog/test2.tumblr.com/posts?limit=2&api_key=KEY2"
+        expect2 = "http://api.tumblr.com/v2/blog/test2.tumblr.com/posts?limit=2&api_key=KEY2"
         actual2 = u (testCtx "KEY2") $ getBlogPosts "test2.tumblr.com" &= Limit 2
-        expect3 = "http://api.tumblr.com:80/v2/blog/test3.tumblr.com/posts?auth_token=AUTH3"
+        expect3 = "http://api.tumblr.com/v2/blog/test3.tumblr.com/posts?auth_token=AUTH3"
         actual3 = u (testAuthCtx "KEY3" "AUTH3") $ getBlogPosts "test3.tumblr.com"
-        expect4 = "http://api.tumblr.com:80/v2/blog/test4.tumblr.com/posts?limit=4&auth_token=AUTH4"
+        expect4 = "http://api.tumblr.com/v2/blog/test4.tumblr.com/posts?limit=4&auth_token=AUTH4"
         actual4 = u (testAuthCtx "KEY4" "AUTH4") $ getBlogPosts "test4.tumblr.com" &= Limit 4

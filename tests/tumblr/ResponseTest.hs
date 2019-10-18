@@ -4,7 +4,7 @@
 
 -- module
 
-module Web.Sleep.Tumblr.ResponseTest (tests) where
+module ResponseTest (tests) where
 
 
 

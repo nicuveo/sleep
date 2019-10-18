@@ -1,7 +1,7 @@
 name:     sleep
 version:  0.1.0
 synopsis: A collection of REST API clients
-gtihub:   nicuveo/sleep
+github:   nicuveo/sleep
 
 
 ghc-options:
@@ -12,6 +12,7 @@ ghc-options:
   - -Wredundant-constraints
   - -fwarn-tabs
   - -fno-warn-type-defaults
+  - -pgmL markdown-unlit
 
 dependencies:
   - base >= 4.7 && < 5
@@ -72,12 +73,8 @@ tests:
     dependencies:
       - sleep
       - QuickCheck
+      - directory
+      - filepath
       - tasty
       - tasty-hunit
       - tasty-quickcheck
-
-  tutorial-tests:
-    source-dirs: tests/tumblr
-    main: Main.hs
-    dependencies:
-      - sleep
