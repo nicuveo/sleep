@@ -20,6 +20,7 @@ dependencies:
   - authenticate-oauth
   - bytestring
   - containers
+  - data-has
   - http-client
   - http-client-tls
   - http-types
@@ -30,15 +31,9 @@ dependencies:
   - text
   - time
   - transformers
+  - transformers-base
   - uri-encode
   - vector
-
-default-extensions:
-  - MultiParamTypeClasses
-  - FlexibleInstances
-  - FlexibleContexts
-  - TypeFamilies
-  - OverloadedStrings
 
 
 library:

@@ -1,3 +1,5 @@
+{-# LANGUAGE OverloadedStrings #-}
+
 -- module
 
 module Web.Sleep.Libs.Request (

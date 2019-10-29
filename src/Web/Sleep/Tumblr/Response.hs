@@ -1,10 +1,14 @@
+{-# LANGUAGE FlexibleContexts  #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE OverloadedStrings #-}
+
+
+
 -- module
 
 module Web.Sleep.Tumblr.Response (
-  RawData,
   Envelope,
-  getResponse,
-  parseEnvelope,
+  decodeJSON,
   ) where
 
 
@@ -17,36 +21,34 @@ import           Data.Aeson
 import           Data.Aeson.Types
 import           Data.ByteString.Lazy
 import qualified Data.Vector            as V
+import qualified Network.HTTP.Client    as N
 
 import           Web.Sleep.Tumblr.Error
 
 
 
+-- exported types
+
+newtype Envelope a = Envelope { getRes :: Either Error a } deriving Show
+
+instance FromJSON a => FromJSON (Envelope a) where
+  parseJSON = parseEnvelope
+
+instance {-# OVERLAPS #-} FromJSON (Envelope ()) where
+  parseJSON = parseEnvelopeWith $ \_ -> return $ Envelope $ Right ()
+
+
+
 -- exported functions
 
-getResponse :: (FromJSON (Envelope a)) => RawData -> Either Error a
-getResponse = join . fmap getRes . left _jsonError . eitherDecode'
+decodeJSON :: FromJSON (Envelope a) => N.Response ByteString -> Either Error a
+decodeJSON = getResponse . N.responseBody
 
 
 
 -- internal types
 
-type RawData = ByteString
-
 data Meta = Meta Int String deriving Show
-
-newtype Envelope a = Envelope { getRes :: Either Error a } deriving Show
-
-
-
--- internal functions
-
-_jsonError :: String -> Error
-_jsonError = ClientError 1 -- FIXME
-
-
-
--- instances
 
 instance FromJSON Meta where
   parseJSON = withObject "envelope meta" $ \o -> do
@@ -54,12 +56,15 @@ instance FromJSON Meta where
     m <- o .: "msg"
     return $ Meta s m
 
-instance FromJSON (Envelope ()) where
-  parseJSON = parseEnvelopeWith $ \_ -> return $ Envelope $ Right ()
-
 
 
 -- local helpers
+
+jsonError :: String -> Error
+jsonError = ClientError 1 -- FIXME
+
+getResponse :: (FromJSON (Envelope a)) => ByteString -> Either Error a
+getResponse = getRes <=< left jsonError . eitherDecode'
 
 parseEnvelope :: FromJSON a => Value -> Parser (Envelope a)
 parseEnvelope = parseEnvelopeWith $ \o -> Envelope . Right <$> o .: "response"

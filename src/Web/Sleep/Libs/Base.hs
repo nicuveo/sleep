@@ -1,4 +1,5 @@
 {-# LANGUAGE DefaultSignatures #-}
+{-# LANGUAGE TypeFamilies      #-}
 
 
 

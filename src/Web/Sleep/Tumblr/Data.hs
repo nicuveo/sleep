@@ -1,4 +1,6 @@
 {-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE FlexibleContexts      #-}
+{-# LANGUAGE OverloadedStrings     #-}
 
 
 
@@ -41,6 +43,8 @@ module Web.Sleep.Tumblr.Data (
   postTags,
   postType,
   postURI,
+  -- decode functions
+  decodePNG
   ) where
 
 
@@ -61,7 +65,6 @@ import qualified Network.HTTP.Types.Header as N
 import qualified Network.URI               as N
 
 import           Web.Sleep.Common.Misc
-import           Web.Sleep.Tumblr.Call
 import           Web.Sleep.Tumblr.Error
 import           Web.Sleep.Tumblr.Response
 
@@ -211,7 +214,6 @@ newtype PostList = PostList { postList :: [Post]
                             } deriving (Show, Eq)
 
 
-
 -- exported functions
 
 postType :: Post -> PostType
@@ -328,18 +330,8 @@ postBaseToObject p = join [ [ "id"             .= pId pb
 instance FromJSON PNGImage where
   parseJSON = withObject "avatar" $ \o -> fmap ImageURI $ parseURI =<< o .: "avatar_url"
 
-instance FromJSON (Envelope PNGImage) where
-  parseJSON = parseEnvelope
-
 instance ToJSON PNGImage where
   toJSON _ = error "[not implemented yet]"
-
-instance Decode PNGImage where
-  decode r = case lookup N.hContentType $ N.responseHeaders r of
-               Just "image/png" -> Right $ ImageRawData $ N.responseBody r
-               Just "text/json" -> decodeJSON r
-               Just t           -> Left $ ClientError 2 $ "expected image type: " ++ SB.unpack t -- FIXME
-               Nothing          -> Left $ ClientError 3 "missing content type header"            -- FIXME
 
 
 instance Show PostFormat where
@@ -352,13 +344,8 @@ instance FromJSON PostFormat where
           parseFormat "markdown" = return MarkdownPost
           parseFormat s          = fail $ T.unpack s ++ " is not a valid post format"
 
-instance FromJSON (Envelope PostFormat) where
-  parseJSON = parseEnvelope
-
 instance ToJSON PostFormat where
   toJSON = fromString . show
-
-instance Decode PostFormat
 
 
 instance Show PostState where
@@ -375,13 +362,8 @@ instance FromJSON PostState where
           parseState "published" = return PublishedPost
           parseState s           = fail $ T.unpack s ++ " is not a valid post state"
 
-instance FromJSON (Envelope PostState) where
-  parseJSON = parseEnvelope
-
 instance ToJSON PostState where
   toJSON = fromString . show
-
-instance Decode PostState
 
 
 instance Show PostType where
@@ -406,13 +388,8 @@ instance FromJSON PostType where
           parseType "video"  = return VideoType
           parseType s        = fail $ T.unpack s ++ " is not a valid post type"
 
-instance FromJSON (Envelope PostType) where
-  parseJSON = parseEnvelope
-
 instance ToJSON PostType where
   toJSON = fromString . show
-
-instance Decode PostType
 
 
 instance FromJSON DialogueEntry where
@@ -422,17 +399,12 @@ instance FromJSON DialogueEntry where
     phrase <- o .: "phrase"
     return $ DialogueEntry name label phrase
 
-instance FromJSON (Envelope DialogueEntry) where
-  parseJSON = parseEnvelope
-
 instance ToJSON DialogueEntry where
   toJSON (DialogueEntry name label phrase) =
     object [ "name"   .= name
            , "label"  .= label
            , "phrase" .= phrase
            ]
-
-instance Decode DialogueEntry
 
 
 instance FromJSON PhotoSize where
@@ -442,17 +414,12 @@ instance FromJSON PhotoSize where
     url    <- parseURI =<< o .: "url"
     return $ PhotoSize width height url
 
-instance FromJSON (Envelope PhotoSize) where
-  parseJSON = parseEnvelope
-
 instance ToJSON PhotoSize where
   toJSON (PhotoSize width height url) =
     object [ "width"  .= width
            , "height" .= height
            , "url"    .= show url
            ]
-
-instance Decode PhotoSize
 
 
 instance FromJSON Photo where
@@ -462,9 +429,6 @@ instance FromJSON Photo where
     alt      <- o .: "alt_sizes"
     return $ Photo caption original alt
 
-instance FromJSON (Envelope Photo) where
-  parseJSON = parseEnvelope
-
 instance ToJSON Photo where
   toJSON (Photo mcaption original alt) =
     object $ [ "original_size" .= original
@@ -473,8 +437,6 @@ instance ToJSON Photo where
                   | Just capt <- [mcaption]
                   ]
 
-instance Decode Photo
-
 
 instance FromJSON Video where
   parseJSON = withObject "video" $ \o -> do
@@ -482,15 +444,10 @@ instance FromJSON Video where
     code  <- o .: "embed_code"
     return $ Video width code
 
-instance FromJSON (Envelope Video) where
-  parseJSON = parseEnvelope
-
 instance ToJSON Video where
   toJSON (Video width code) = object [ "width"      .= width
                                      , "embed_code" .= code
                                      ]
-
-instance Decode Video
 
 
 instance FromJSON Blog where
@@ -506,9 +463,6 @@ instance FromJSON Blog where
     askAnon <- b .:? "ask_anon" .!= False
     blocked <- b .:? "is_blocked_from_primary" .!= False
     return $ Blog title name desc posts updated ask askAnon blocked likes
-
-instance FromJSON (Envelope Blog) where
-  parseJSON = parseEnvelope
 
 instance ToJSON Blog where
   toJSON b = object
@@ -526,8 +480,6 @@ instance ToJSON Blog where
              ])
     ]
 
-instance Decode Blog
-
 
 instance FromJSON BlogSummary where
   parseJSON = withObject "blog summary" $ \o -> do
@@ -536,17 +488,12 @@ instance FromJSON BlogSummary where
     updated <- fromTimestamp <$> o .: "updated"
     return $ BlogSummary name uri updated
 
-instance FromJSON (Envelope BlogSummary) where
-  parseJSON = parseEnvelope
-
 instance ToJSON BlogSummary where
   toJSON b = object
     [ "name"    .= blogName (b :: BlogSummary)
     , "url"     .= show (blogURI b)
     , "updated" .= toTimestamp (blogUpdated (b :: BlogSummary))
     ]
-
-instance Decode BlogSummary
 
 
 instance FromJSON PostBase where
@@ -664,46 +611,38 @@ instance ToJSON Post where
             , "player"  .= player
             ]
 
-instance FromJSON (Envelope Post) where
-  parseJSON = parseEnvelope
-
-instance Decode Post
-
 
 instance FromJSON BlogList where
   parseJSON = withObject "blog list" $ \o ->
     BlogList <$> o .: "blogs"
 
-instance FromJSON (Envelope BlogList) where
-  parseJSON = parseEnvelope
-
 instance ToJSON BlogList where
   toJSON (BlogList blogs) = object [ "blogs" .= blogs ]
-
-instance Decode BlogList
 
 
 instance FromJSON BlogSummaryList where
   parseJSON = withObject "blog summary list" $ \o ->
     BlogSummaryList <$> o .: "users"
 
-instance FromJSON (Envelope BlogSummaryList) where
-  parseJSON = parseEnvelope
-
 instance ToJSON BlogSummaryList where
   toJSON (BlogSummaryList blogs) = object [ "users" .= blogs ]
-
-instance Decode BlogSummaryList
 
 
 instance FromJSON PostList where
   parseJSON = withObject "post list" $ \o ->
     PostList <$> o .: "posts"
 
-instance FromJSON (Envelope PostList) where
-  parseJSON = parseEnvelope
-
 instance ToJSON PostList where
   toJSON (PostList posts) = object [ "posts" .= posts ]
 
-instance Decode PostList
+
+
+-- decode functions
+
+decodePNG :: N.Response LB.ByteString -> Either Error PNGImage
+decodePNG r =
+  case lookup N.hContentType $ N.responseHeaders r of
+    Just "image/png" -> Right $ ImageRawData $ N.responseBody r
+    Just "text/json" -> decodeJSON r
+    Just t           -> Left $ ClientError 2 $ "expected image type: " ++ SB.unpack t -- FIXME
+    Nothing          -> Left $ ClientError 3 "missing content type header"            -- FIXME

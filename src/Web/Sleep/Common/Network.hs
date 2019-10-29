@@ -1,4 +1,7 @@
-{-# LANGUAGE ConstraintKinds #-}
+{-# LANGUAGE ConstraintKinds        #-}
+{-# LANGUAGE FlexibleContexts       #-}
+{-# LANGUAGE FlexibleInstances      #-}
+{-# LANGUAGE FunctionalDependencies #-}
 
 
 
@@ -6,10 +9,10 @@
 
 module Web.Sleep.Common.Network (
   NetworkConfig(..),
-  HasNetworkConfig(..),
   MonadNetwork,
   QMethod(..),
-  ToRequest(..),
+  Operation(..),
+  getNetworkConfig,
   defaultManager,
   defaultIONetworkConfig,
   makeMockNetworkConfig,
@@ -19,15 +22,15 @@ module Web.Sleep.Common.Network (
 
 -- imports
 
-import           Control.Monad.Cont
+import           Control.Monad.Base
 import           Control.Monad.Identity
 import           Control.Monad.Reader
-import qualified Data.ByteString.Lazy             as LB
-import qualified Network.HTTP.Client              as N
-import qualified Network.HTTP.Client.TLS          as N
-import qualified Web.Authenticate.OAuth           as OA
+import qualified Data.ByteString.Lazy    as LB
+import           Data.Has
+import qualified Network.HTTP.Client     as N
+import qualified Network.HTTP.Client.TLS as N
+import qualified Web.Authenticate.OAuth  as OA
 
-import           Web.Sleep.Libs.Base
 import           Web.Sleep.Libs.Request
 
 
@@ -35,10 +38,6 @@ import           Web.Sleep.Libs.Request
 -- request helpers
 
 data QMethod = QGet | QPost deriving (Show, Eq)
-
-class Monad m => ToRequest a m where
-  type RequestResult a :: *
-  toRequest :: MonadNetwork r m => a -> m N.Request
 
 
 
@@ -50,18 +49,25 @@ data NetworkConfig m = NetworkConfig
   , networkSend    :: N.Request -> m (N.Response LB.ByteString)
   }
 
-class HasNetworkConfig a where
-  type NetworkConfigBase a :: * -> *
-  getNetworkConfig :: a -> NetworkConfig (NetworkConfigBase a)
-
-instance HasNetworkConfig (NetworkConfig m) where
-  type NetworkConfigBase (NetworkConfig m) = m
-  getNetworkConfig = id
-
 instance N.HasHttpManager (NetworkConfig m) where
   getHttpManager = networkManager
 
-type MonadNetwork r m = (MonadReader r m, MonadBase m, HasNetworkConfig r, Base m ~ NetworkConfigBase r)
+type MonadNetwork r b m = (MonadReader r m, Has (NetworkConfig b) r, MonadBase b m)
+
+
+
+-- operation
+
+class Operation from to err | from -> to err where
+  toRequest :: from -> NetworkConfig m -> m N.Request
+  fromResponse :: from -> N.Response LB.ByteString -> Either err to
+
+
+
+-- convenience function
+
+getNetworkConfig :: MonadNetwork r b m => m (NetworkConfig b)
+getNetworkConfig = asks getter
 
 
 
