@@ -11,7 +11,7 @@ experience with the Tumblr API.
 -- module
 
 
-module Web.Sleep.Tumblr.Simple (
+module Web.Sleep.Tumblr.Simple where {- (
 
   -- * Monad aliases
   SimpleAPIKeyMonad,
@@ -183,3 +183,4 @@ instance N.HasHttpManager (JustAuthCred m) where
 
 instance N.HasHttpManager c => N.HasHttpManager (BlogContext c) where
   getHttpManager = N.getHttpManager . ctx
+ -}

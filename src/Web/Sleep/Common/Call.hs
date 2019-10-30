@@ -5,7 +5,10 @@
 
 -- module
 
-module Web.Sleep.Common.Call (
+module Web.Sleep.Common.Call where
+
+{-
+(
   module Web.Sleep.Common.Network,
   call,
   callT,
@@ -57,3 +60,4 @@ doCallM p f = do
   c <- getNetworkConfig
   r <- liftBase $ doCall return c f
   p r
+-}

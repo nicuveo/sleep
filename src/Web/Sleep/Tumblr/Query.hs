@@ -1,109 +1,43 @@
+{-# LANGUAGE IncoherentInstances #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE ConstraintKinds            #-}
 {-# LANGUAGE DataKinds                  #-}
 {-# LANGUAGE DefaultSignatures          #-}
+{-# LANGUAGE ExistentialQuantification #-}
+{-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE MultiWayIf                 #-}
 
 
 
 -- module
 
-module Web.Sleep.Tumblr.Query (
-
-  -- * Query
-  Query,
-  (&=),
-  toUnsignedRequest,
-  toUnsignedURI,
-  toURI,
-
-  -- * Parameters
-  BlogId(..),
-  APIKey(..),
-  Before(..),
-  BeforeId(..),
-  Filter(..),
-  Format(..),
-  Limit(..),
-  Offset(..),
-  Title(..),
-  Tag(..),
-  State(..),
-  PRange(..),
-  AvatarSize(..),
-  HasBlogId(..),
-  HasAPIKey(..),
-  HasAuthCred(..),
-  MayHaveAuthCred(..),
-  MonadAuth,
-  MonadMaybeAuth,
-
-  -- * Blog info
-  getBlogInfo,
-  getInfo,
-
-  -- * Blog avatar
-  getBlogAvatar,
-  getAvatar,
-
-  -- * Blog likes
-  getBlogLikes,
-  getLikes,
-
-  -- * Blog followees
-  getBlogFollowees,
-  getFollowees,
-
-  -- * Blog followers
-  getBlogFollowers,
-  getFollowers,
-
-  -- * Blog post
-  getBlogPost,
-  getPost,
-
-  -- * Blog posts
-  getBlogPosts,
-  getPosts,
-  getBlogPostsByType,
-  getPostsByType,
-
-  -- * Blog posts queue
-  getBlogQueuedPosts,
-  getQueuedPosts,
-
-  -- * Blog posts draft
-  getBlogDraftPosts,
-  getDraftPosts,
-
-  -- * Post new text
-  postNewBlogText,
-  postNewText,
-
-  ) where
+module Web.Sleep.Tumblr.Query where
 
 
 
 -- imports
 
-import           Control.Monad.Reader
-import qualified Data.ByteString                  as B (ByteString)
+import           Data.Aeson
+import qualified Data.ByteString                  as B  (ByteString)
+import qualified Data.ByteString.Lazy             as LB (ByteString)
 import qualified Data.Map.Strict                  as M
 import           Data.String
 import           Data.Time.Clock
 import           Data.Typeable
+import Data.List as L
 import qualified Network.HTTP.Client              as N
 import qualified Network.HTTP.Types.Header        as N
 import qualified Network.HTTP.Types.Method        as N
-import qualified Network.URI                      as N (URI)
 import qualified Network.URI.Encode               as N
 
-import           Web.Sleep.Libs.Base
 import           Web.Sleep.Libs.Request
-
-import           Web.Sleep.Common.Network
 import           Web.Sleep.Common.Misc
 import           Web.Sleep.Tumblr.Auth
+import           Web.Sleep.Tumblr.Error
+import           Web.Sleep.Tumblr.Response
 import           Web.Sleep.Tumblr.Data
 
 
@@ -115,16 +49,22 @@ data QueryName = GetBlogInfo
                | GetBlogLikes
                | GetBlogFollowees
                | GetBlogFollowers
-               | GetBlogPost
-               | GetBlogPosts
-               | GetBlogQueuedPosts
-               | GetBlogDraftPosts
+               | GetPost
+               | GetPosts
+               | GetQueuedPosts
+               | GetDraftPosts
                | PostText
 
-data Query (q :: QueryName) m = Query { request :: N.Request
-                                      , params  :: ParametersMap
-                                      , sign    :: N.Request -> m N.Request
-                                      }
+data Query (q :: QueryName) = Query { baseRequest :: N.Request
+                                    , params      :: ParametersMap
+                                    }
+
+class QueryMethod q where
+  getMethod :: Query q -> N.Method
+
+
+
+-- parameters
 
 type Parameter = (B.ByteString, B.ByteString)
 type ParametersMap = M.Map TypeRep Parameter
@@ -133,48 +73,67 @@ class Typeable p => ToParameter p where
   mkParam :: p -> Parameter
 
 class ToParameter p => QueryParam (q :: QueryName) p where
-  pAdd :: p -> Query q m -> Query q m
+  pAdd :: p -> Query q -> Query q
   pAdd p q = q { params = M.insert (typeOf p) (mkParam p) $ params q }
 
-class QueryInfo (q :: QueryName) where
-  type QueryResult q :: *
-  getMethod :: Query q m -> QMethod
+data ParameterItem q = forall p . (QueryParam q p) => PItem p
+
+(&=) :: Query q -> [ParameterItem q] -> Query q
+(&=) = L.foldl' $ \q (PItem p) -> pAdd p q
 
 
 
--- query instances
+-- decode
 
-instance Monad m => ToRequest (Query q m) m where
-  type RequestResult (Query q m) = QueryResult q
-  toRequest q = sign q $ toUnsignedRequest q
-
-instance Show (Query q m) where
-  show = show . toUnsignedURI
+class Decode q r | q -> r where
+  decode :: Query q -> N.Response LB.ByteString -> Either Error r
+  default decode :: FromJSON (Envelope r) => Query q -> N.Response LB.ByteString -> Either Error r
+  decode = const decodeJSON
 
 
 
--- query functions
+-- create request
 
-(&=) :: (Functor f, QueryParam q p) => f (Query q m) -> p -> f (Query q m)
-q &= p = pAdd p <$> q
+type OAuthFunction m = N.Request -> m N.Request
 
-toUnsignedRequest :: Query q m -> N.Request
-toUnsignedRequest q = if | N.method req == N.methodGet  -> req
-                         | N.method req == N.methodPost -> qsToBody req
-                         | otherwise                    -> error "FIXME(oh noes)"
-  where req = appendParams (M.elems $ params q) $ request q
+class OAuthCommand q where
+  mkOAuthRequest :: OAuthFunction m -> AppKey -> Query q -> m N.Request
+  mkOAuthRequest = mkOAuthReq
 
-toUnsignedURI :: Query q m -> N.URI
-toUnsignedURI = N.getUri . toUnsignedRequest
+class OAuthCommand q => APICommand q where
+  mkAPIRequest :: AppKey -> Query q -> N.Request
+  mkAPIRequest = mkAPIReq
 
-toURI :: MonadNetwork c m => Query q m -> m N.URI
-toURI = fmap N.getUri . toRequest
+class APICommand q => Command q where
+  mkRequest :: Query q -> N.Request
+  mkRequest = mkReq
+
+
+
+-- query instance and helpers
+
+instance Show (Query q) where
+  show = show . N.getUri . mkReq
+
+mkReq :: Query q -> N.Request
+mkReq q = if | N.method req == N.methodGet  -> req
+             | N.method req == N.methodPost ->
+                 appendHeader N.hContentType "application/x-www-form-urlencoded" $
+                 setBody (N.queryString req) $
+                 N.setQueryString [] req
+             | otherwise                    -> error "mkReq: unsupported method type"
+  where req = appendParams (M.elems $ params q) $ baseRequest q
+
+mkAPIReq :: AppKey -> Query q -> N.Request
+mkAPIReq k = appendParam ("api_key", k) . mkReq
+
+mkOAuthReq :: OAuthFunction m -> AppKey -> Query q -> m N.Request
+mkOAuthReq = (... mkAPIReq)
 
 
 
 -- parameters
 
-newtype APIKey   = APIKey   AppKey     deriving (Show, Eq, Typeable, IsString)
 newtype BlogId   = BlogId   String     deriving (Show, Eq, Typeable, IsString)
 newtype Title    = Title    String     deriving (Show, Eq, Typeable, IsString)
 newtype Before   = Before   UTCTime    deriving (Show, Eq, Typeable)
@@ -216,238 +175,154 @@ instance ToParameter PRange   where mkParam (POffset   o) = ("offset",    fromSt
                                     mkParam (PAfter    d) = ("after",     fromString $ show $ toTimestamp d)
 
 
-class HasBlogId a where
-  getBlogId :: a -> BlogId
-
-class HasAPIKey a where
-  getAPIKey :: a -> APIKey
-
-class HasAuthCred a where
-  getAuthCred :: a -> AuthCred
-
-class MayHaveAuthCred a where
-  maybeGetAuthCred :: a -> Maybe AuthCred
-  default maybeGetAuthCred :: HasAuthCred a => a -> Maybe AuthCred
-  maybeGetAuthCred = Just . getAuthCred
-
-type MonadAuth      c m = (MonadNetwork c m, HasAuthCred c)
-type MonadMaybeAuth c m = (MonadNetwork c m, HasAPIKey c, MayHaveAuthCred c)
-
-
-
--- parameter instances
-
-instance {-# OVERLAPPABLE #-} MayHaveAuthCred a where
-  maybeGetAuthCred = const Nothing
-
-instance HasBlogId BlogId where { getBlogId = id }
-instance HasAPIKey APIKey where { getAPIKey = id }
-
-
 
 -- blog info
 
-instance QueryInfo  'GetBlogInfo where
-  type QueryResult  'GetBlogInfo = Blog
-  getMethod = const QGet
+instance QueryMethod  'GetBlogInfo where getMethod = const N.methodGet
+instance OAuthCommand 'GetBlogInfo
+instance APICommand   'GetBlogInfo
+instance Decode       'GetBlogInfo Blog
 
-getBlogInfo :: MonadMaybeAuth c m => BlogId -> m (Query 'GetBlogInfo m)
-getBlogInfo (BlogId bid) = liftMaybeAddAuth $ mkQuery bid "/info" []
-
-getInfo :: (MonadMaybeAuth c m, HasBlogId c) => m (Query 'GetBlogInfo m)
-getInfo = asks getBlogId >>= getBlogInfo
+getBlogInfo :: BlogId -> Query 'GetBlogInfo
+getBlogInfo (BlogId bid) = mkQuery_ bid "/info" []
 
 
 
 -- blog avatar
 
-instance QueryInfo  'GetBlogAvatar where
-  type QueryResult  'GetBlogAvatar = PNGImage
-  getMethod = const QGet
+instance QueryMethod  'GetBlogAvatar where getMethod = const N.methodGet
+instance OAuthCommand 'GetBlogAvatar
+instance APICommand   'GetBlogAvatar
+instance Command      'GetBlogAvatar
+instance Decode       'GetBlogAvatar PNGImage where decode = const decodePNG
 
-getBlogAvatar :: MonadMaybeAuth c m => BlogId -> AvatarSize -> m (Query 'GetBlogAvatar m)
-getBlogAvatar (BlogId bid) s = liftMaybeAddAuth $ mkQuery bid ("/avatar/" ++ show s) []
-
-getAvatar :: (MonadMaybeAuth c m, HasBlogId c) => AvatarSize -> m (Query 'GetBlogAvatar m)
-getAvatar s = asks getBlogId >>= flip getBlogAvatar s
+getBlogAvatar :: BlogId -> AvatarSize -> Query 'GetBlogAvatar
+getBlogAvatar (BlogId bid) s = mkQuery_ bid ("/avatar/" ++ show s) []
 
 
 
 -- blog likes
 
-instance QueryParam 'GetBlogLikes Limit
-instance QueryParam 'GetBlogLikes PRange
-instance QueryInfo  'GetBlogLikes where
-  type QueryResult  'GetBlogLikes = PostList
-  getMethod = const QGet
+instance QueryMethod  'GetBlogLikes where getMethod = const N.methodGet
+instance OAuthCommand 'GetBlogLikes
+instance APICommand   'GetBlogLikes
+instance Decode       'GetBlogLikes PostList
+instance QueryParam   'GetBlogLikes Limit
+instance QueryParam   'GetBlogLikes PRange
 
-getBlogLikes :: MonadMaybeAuth c m => BlogId -> m (Query 'GetBlogLikes m)
-getBlogLikes (BlogId bid) = liftMaybeAddAuth $ mkQuery bid "/likes" []
-
-getLikes :: (MonadMaybeAuth c m, HasBlogId c) => m (Query 'GetBlogLikes m)
-getLikes = asks getBlogId >>= getBlogLikes
+getBlogLikes :: BlogId -> Query 'GetBlogLikes
+getBlogLikes (BlogId bid) = mkQuery_ bid "/likes" []
 
 
 
 -- blog followees
 
-instance QueryParam 'GetBlogFollowees Limit
-instance QueryParam 'GetBlogFollowees Offset
-instance QueryInfo  'GetBlogFollowees where
-  type QueryResult  'GetBlogFollowees = BlogSummaryList
-  getMethod = const QGet
+instance QueryMethod  'GetBlogFollowees where getMethod = const N.methodGet
+instance OAuthCommand 'GetBlogFollowees
+instance Decode       'GetBlogFollowees BlogSummaryList
+instance QueryParam   'GetBlogFollowees Limit
+instance QueryParam   'GetBlogFollowees Offset
 
-getBlogFollowees :: MonadAuth c m => BlogId -> m (Query 'GetBlogFollowees m)
-getBlogFollowees (BlogId bid) = liftAddAuth $ mkQuery bid "/following" []
-
-getFollowees :: (MonadAuth c m, HasBlogId c) => m (Query 'GetBlogFollowees m)
-getFollowees = asks getBlogId >>= getBlogFollowees
+getBlogFollowees :: BlogId -> Query 'GetBlogFollowees
+getBlogFollowees (BlogId bid) = mkQuery_ bid "/following" []
 
 
 
 -- blog followers
 
-instance QueryParam 'GetBlogFollowers Limit
-instance QueryParam 'GetBlogFollowers Offset
-instance QueryInfo  'GetBlogFollowers where
-  type QueryResult  'GetBlogFollowers = BlogSummaryList
-  getMethod = const QGet
+instance QueryMethod  'GetBlogFollowers where getMethod = const N.methodGet
+instance OAuthCommand 'GetBlogFollowers
+instance Decode       'GetBlogFollowers BlogSummaryList
+instance QueryParam   'GetBlogFollowers Limit
+instance QueryParam   'GetBlogFollowers Offset
 
-getBlogFollowers :: MonadAuth c m => BlogId -> m (Query 'GetBlogFollowers m)
-getBlogFollowers (BlogId bid) = liftAddAuth $ mkQuery bid "/followers" []
-
-getFollowers :: (MonadAuth c m, HasBlogId c) => m (Query 'GetBlogFollowers m)
-getFollowers = asks getBlogId >>= getBlogFollowers
+getBlogFollowers :: BlogId -> Query 'GetBlogFollowers
+getBlogFollowers (BlogId bid) = mkQuery_ bid "/followers" []
 
 
 
 -- blog post
 
-instance QueryInfo 'GetBlogPost where
-  type QueryResult 'GetBlogPost = PostList
-  getMethod = const QGet
+instance QueryMethod  'GetPost where getMethod = const N.methodGet
+instance OAuthCommand 'GetPost
+instance APICommand   'GetPost
+instance Decode       'GetPost PostList
 
-getBlogPost :: MonadMaybeAuth c m => BlogId -> PostId -> m (Query 'GetBlogPosts m)
-getBlogPost (BlogId bid) pid = liftMaybeAddAuth $ mkQuery bid "/posts" qs
+getPost :: BlogId -> PostId -> Query 'GetPost
+getPost (BlogId bid) pid = mkQuery_ bid "/posts" qs
   where qs = [("id", fromString $ show pid)]
-
-getPost :: (MonadMaybeAuth c m, HasBlogId c) => PostId -> m (Query 'GetBlogPosts m)
-getPost pid = asks getBlogId >>= flip getBlogPost pid
 
 
 
 -- blog posts
 
-instance QueryParam 'GetBlogPosts Before
-instance QueryParam 'GetBlogPosts Limit
-instance QueryParam 'GetBlogPosts Offset
-instance QueryParam 'GetBlogPosts Filter
-instance QueryParam 'GetBlogPosts Tag
-instance QueryInfo  'GetBlogPosts where
-  type QueryResult  'GetBlogPosts = PostList
-  getMethod = const QGet
+instance QueryMethod  'GetPosts where getMethod = const N.methodGet
+instance OAuthCommand 'GetPosts
+instance APICommand   'GetPosts
+instance Decode       'GetPosts PostList
+instance QueryParam   'GetPosts Before
+instance QueryParam   'GetPosts Limit
+instance QueryParam   'GetPosts Offset
+instance QueryParam   'GetPosts Filter
+instance QueryParam   'GetPosts Tag
 
-getBlogPosts :: MonadMaybeAuth c m => BlogId -> m (Query 'GetBlogPosts m)
-getBlogPosts (BlogId bid) = liftMaybeAddAuth $ mkQuery bid "/posts" []
+getPosts :: BlogId -> Query 'GetPosts
+getPosts (BlogId bid) = mkQuery_ bid "/posts" []
 
-getPosts :: (MonadMaybeAuth c m, HasBlogId c) => m (Query 'GetBlogPosts m)
-getPosts = asks getBlogId >>= getBlogPosts
-
-getBlogPostsByType :: MonadMaybeAuth c m => BlogId -> PostType -> m (Query 'GetBlogPosts m)
-getBlogPostsByType (BlogId bid) t = liftMaybeAddAuth $ mkQuery bid ("/posts/" ++ show t) []
-
-getPostsByType :: (MonadMaybeAuth c m, HasBlogId c) => PostType -> m (Query 'GetBlogPosts m)
-getPostsByType t = asks getBlogId >>= flip getBlogPostsByType t
+getPostsByType :: BlogId -> PostType -> Query 'GetPosts
+getPostsByType (BlogId bid) t = mkQuery_ bid ("/posts/" ++ show t) []
 
 
 
 -- blog queued posts
 
-instance QueryParam 'GetBlogQueuedPosts Limit
-instance QueryParam 'GetBlogQueuedPosts Offset
-instance QueryParam 'GetBlogQueuedPosts Filter
-instance QueryInfo  'GetBlogQueuedPosts where
-  type QueryResult  'GetBlogQueuedPosts = PostList
-  getMethod = const QGet
+instance QueryMethod  'GetQueuedPosts where getMethod = const N.methodGet
+instance OAuthCommand 'GetQueuedPosts
+instance Decode       'GetQueuedPosts PostList
+instance QueryParam   'GetQueuedPosts Limit
+instance QueryParam   'GetQueuedPosts Offset
+instance QueryParam   'GetQueuedPosts Filter
 
-getBlogQueuedPosts :: MonadAuth c m => BlogId -> m (Query 'GetBlogQueuedPosts m)
-getBlogQueuedPosts (BlogId bid) = liftAddAuth $ mkQuery bid "/posts/queue" []
-
-getQueuedPosts :: (MonadAuth c m, HasBlogId c) => m (Query 'GetBlogQueuedPosts m)
-getQueuedPosts = asks getBlogId >>= getBlogQueuedPosts
+getQueuedPosts :: BlogId -> Query 'GetQueuedPosts
+getQueuedPosts (BlogId bid) = mkQuery_ bid "/posts/queue" []
 
 
 
 -- blog draft posts
 
-instance QueryParam 'GetBlogDraftPosts BeforeId
-instance QueryParam 'GetBlogDraftPosts Filter
-instance QueryInfo  'GetBlogDraftPosts where
-  type QueryResult  'GetBlogDraftPosts = PostList
-  getMethod = const QGet
+instance QueryMethod  'GetDraftPosts where getMethod = const N.methodGet
+instance OAuthCommand 'GetDraftPosts
+instance Decode       'GetDraftPosts PostList
+instance QueryParam   'GetDraftPosts BeforeId
+instance QueryParam   'GetDraftPosts Filter
 
-getBlogDraftPosts :: MonadAuth c m => BlogId -> m (Query 'GetBlogDraftPosts m)
-getBlogDraftPosts (BlogId bid) = liftAddAuth $ mkQuery bid "/posts/draft" []
-
-getDraftPosts :: (MonadAuth c m, HasBlogId c) => m (Query 'GetBlogDraftPosts m)
-getDraftPosts = asks getBlogId >>= getBlogDraftPosts
+getDraftPosts :: BlogId -> Query 'GetDraftPosts
+getDraftPosts (BlogId bid) = mkQuery_ bid "/posts/draft" []
 
 
 
 -- post new text
 
-instance QueryParam 'PostText Format
-instance QueryParam 'PostText Title
-instance QueryParam 'PostText State
-instance QueryInfo  'PostText where
-  type QueryResult  'PostText = ()
-  getMethod = const QPost
+instance QueryMethod  'PostText where getMethod = const N.methodPost
+instance OAuthCommand 'PostText
+instance Decode       'PostText ()
+instance QueryParam   'PostText Format
+instance QueryParam   'PostText Title
+instance QueryParam   'PostText State
 
-postNewBlogText :: MonadAuth c m => BlogId -> String -> m (Query 'PostText m)
-postNewBlogText (BlogId bid) b = liftAddAuth $ mkQuery bid "/post" qs
+postNewText :: BlogId -> String -> Query 'PostText
+postNewText (BlogId bid) b = mkQuery_ bid "/post" qs
   where qs = [("type", "text"), ("body", fromString b)]
-
-postNewText :: (MonadAuth c m, HasBlogId c) => String -> m (Query 'PostText m)
-postNewText body = asks getBlogId >>= flip postNewBlogText body
 
 
 
 -- local helpers
 
-qsToBody :: N.Request -> N.Request
-qsToBody req = appendHeader N.hContentType "application/x-www-form-urlencoded" $
-               setBody (N.queryString req) $
-               N.setQueryString [] req
-
-mkQuery :: (Monad m, QueryInfo q) => String -> String -> [Parameter] -> m (Query q m)
-mkQuery bid path qs = return resultQuery
-  where resultQuery = Query req M.empty return
+mkQuery_ :: QueryMethod q => String -> String -> [Parameter] -> Query q
+mkQuery_ bid path qs = resultQuery
+  where resultQuery = Query req M.empty
         req = appendParams qs $
               N.defaultRequest { N.path   = fromString $ "/v2/blog/" ++ bid ++ path
-                               , N.method = reqMethod
+                               , N.method = getMethod resultQuery
                                , N.host   = "api.tumblr.com"
                                }
-        reqMethod = case getMethod resultQuery of
-                      QGet  -> N.methodGet
-                      QPost -> N.methodPost
-
-addOAuth :: MonadNetwork r m => AuthCred -> N.Request -> m N.Request
-addOAuth (oauth, creds) req = do
-  config <- asks getNetworkConfig
-  liftBase $ requestSign config oauth creds req
-
-liftMaybeAddAuth :: MonadMaybeAuth c m => m (Query q m) -> m (Query q m)
-liftMaybeAddAuth query = do
-  q <- query
-  APIKey k <- asks getAPIKey
-  ma <- asks maybeGetAuthCred
-  case ma of
-    Nothing -> return $ q { sign = addAPIKey k }
-    Just a  -> return $ q { sign = addOAuth  a }
-  where addAPIKey k = return . appendParam ("api_key", k)
-
-liftAddAuth :: MonadAuth c m => m (Query q m) -> m (Query q m)
-liftAddAuth query = do
-  q <- query
-  a <- asks getAuthCred
-  return $ q { sign = addOAuth a }
