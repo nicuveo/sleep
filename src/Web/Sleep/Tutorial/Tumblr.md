@@ -1,3 +1,7 @@
+```haskell
+module Web.Sleep.Tutorial.Tumblr where
+```
+
 # Tumblr API example
 
 This file aims at showing how to use the Tumblr API, using the Web.Sleep
@@ -18,7 +22,7 @@ $ stack ghci
 
 Nothing fancy here.
 
-```haskell
+```haskell-fixme
 {-# LANGUAGE FlexibleContexts           #-}
 {-# LANGUAGE FlexibleInstances          #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
@@ -45,7 +49,7 @@ There are two main entry points to the library:
   * `Web.Sleep.Tumblr` exports everything you'll need,
   * `Web.Sleep.Tumblr.Simple` exports additional helpers.
 
-```haskell
+```haskell-fixme
 import           Web.Sleep.Tumblr
 import           Web.Sleep.Tumblr.Simple
 ```
@@ -102,7 +106,7 @@ by being authentified and signing requests with OAuth. Correspondingly, there
 are two main `Simple` functions: `withAPIkey` and `withAuth`, which run in
 `IO`. Some monad aliases are also defined:
 
-```haskell
+```haskell-fixme
 
 fetchBlogInfo :: N.Manager -> APIKey -> IO Blog
 fetchBlogInfo m k = do
@@ -133,7 +137,7 @@ monad to run those queries. The most important requirement is for that
 monad to be an instance of `MonadReader`, and for the context held by
 the reader to provide what we need. Let's define our context:
 
-```haskell
+```haskell-fixme
 data Context m = Context { apiKey        :: ByteString
                          , auth          :: AuthCred
                          , networkConfig :: NetworkConfig m
@@ -147,7 +151,7 @@ instance, mostly to retrieve those fields.
 
 To start with, our context has a `NetworkConfig`:
 
-```haskell
+```haskell-fixme
 instance HasNetworkConfig (Context m) where
   type NetworkConfigBase (Context m) = m
   getNetworkConfig = networkConfig
@@ -155,7 +159,7 @@ instance HasNetworkConfig (Context m) where
 
 It also provides an API key:
 
-```haskell
+```haskell-fixme
 instance HasAPIKey (Context m) where
   getAPIKey = APIKey . apiKey
 ```
@@ -170,7 +174,7 @@ and we can return an -AuthCred in both cases.
 
 
 
-```haskell
+```haskell-fixme
 -- our context has auth info
 
 instance MayHaveAuthCred (Context m)
@@ -190,7 +194,7 @@ from the current context: `getBlogPosts` versus `getPosts`. The `Simple` API
 also defines a wrapper around `withReaderT`, `withBlog` that allows one to
 locally add a blog name to a given context.
 
-```haskell
+```haskell-fixme
 instance HasBlogId (Context m) where
   getBlogId = BlogId . blog
 ```
@@ -200,7 +204,7 @@ instance HasBlogId (Context m) where
 
 Nothing more is needed than:
 
-```haskell
+```haskell-fixme
 type MyTumblrMonad m = ReaderT (Context m) m
 ```
 
@@ -211,7 +215,7 @@ but you can of course add more transformers to that stack.
 
 We can directly use our monad with IO:
 
-```haskell
+```haskell-fixme
 createTextPost :: String -> MyTumblrMonad IO ()
 createTextPost content = callT $ postNewText content &= Title "An update!"
 ```
@@ -219,7 +223,7 @@ createTextPost content = callT $ postNewText content &= Title "An update!"
 If we want to abstract the monad at the bottom of the stack, we'll
 need to explicitly list all the requirements on `m`:
 
-```haskell
+```haskell-fixme
 hasDrafts :: ( MonadReader      r m         -- this monad m carries a context r
              , MonadThrow         m         -- this monad m handles exception
              , MonadBase          m         -- this monad m knows what lies at the bottom of the stack (IO or Identity)
@@ -244,7 +248,7 @@ other alias is defined, `MonadAuth`, for just this purpose.
 
 Thanks to those, a generic function such as the one above could be rewritten as:
 
-```haskell
+```haskell-fixme
 hasDrafts2 :: ( MonadAuth    r m  -- this monad m carries a context r which provides authentication and a network config
               , MonadThrow     m  -- this monad m handles exception
               ) => m Bool

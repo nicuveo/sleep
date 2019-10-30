@@ -82,7 +82,6 @@ loadConfig blog = do
           logWarning $ "config not found for " ++ blog
           getHomeDirectory >>= \hd -> return $ Config hd 0
 
-
 writeConfig :: String -> Config -> IO ()
 writeConfig blog config = do
   cf <- configFile blog

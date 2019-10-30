@@ -1,3 +1,9 @@
+{-# LANGUAGE ConstraintKinds       #-}
+{-# LANGUAGE FlexibleContexts      #-}
+{-# LANGUAGE FlexibleInstances     #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE OverloadedStrings     #-}
+
 {- |
 Module: Web.Sleep.Tumblr.Simple
 
@@ -7,92 +13,115 @@ experience with the Tumblr API.
 
 
 
-
 -- module
 
 
-module Web.Sleep.Tumblr.Simple where {- (
-
-  -- * Monad aliases
-  SimpleAPIKeyMonad,
-  SimpleAPIKeyBlogMonad,
-  SimpleAuthCredMonad,
-  SimpleAuthCredBlogMonad,
-
-  -- * Monadic helpers
-  withAPIKey,
-  withAuth,
-  withBlog,
-
-  -- * Auth helpers
-  URLCallback,
-  getSimpleAuthCred,
-  getSimpleAuthCredM,
-  getSimpleDebugAuthCred,
-  checkAuthValidity
-
-  ) where
+module Web.Sleep.Tumblr.Simple where
 
 
 
 -- imports
 
+import           Control.Exception.Safe
+import           Control.Monad.Base
+import           Control.Monad.Except
+import           Control.Monad.Identity
 import           Control.Monad.Reader
-import           Data.ByteString.Char8         (pack)
-import qualified Network.HTTP.Client           as N
-import qualified Web.Authenticate.OAuth        as OA
+import           Data.ByteString.Char8   (pack)
+import qualified Data.ByteString.Lazy    as LB
+import qualified Network.HTTP.Client     as N
+import qualified Network.HTTP.Client.TLS as N
+import qualified Web.Authenticate.OAuth  as OA
 
-import           Web.Sleep.Libs.Base
-
-import           Web.Sleep.Common.Network
+import           Web.Sleep.Common.Misc
+import           Web.Sleep.Libs.Request
 import           Web.Sleep.Tumblr
 
 
 
--- type aliases for simple monad use
+-- context data
 
-type SimpleAPIKeyMonad       m = ReaderT              (JustAPIKey   (Base m))  m
-type SimpleAPIKeyBlogMonad   m = ReaderT (BlogContext (JustAPIKey   (Base m))) m
-type SimpleAuthCredMonad     m = ReaderT              (JustAuthCred (Base m))  m
-type SimpleAuthCredBlogMonad m = ReaderT (BlogContext (JustAuthCred (Base m))) m
+data NetworkConfig m = NetworkConfig
+  { requestSign :: OA.OAuth -> OA.Credential -> N.Request -> m N.Request
+  , networkSend :: N.Request -> m (N.Response LB.ByteString)
+  }
+
+data TumblrK m = TumblrK
+  { networkConfig :: NetworkConfig m
+  , apiKey        :: AppKey
+  }
+
+data TumblrA m = TumblrA
+  { tumblrK       :: TumblrK m
+  , appSecret     :: AppSecret
+  , appCredential :: OA.Credential
+  }
 
 
 
--- helper functions for simple usage
+-- access to context
 
-{- | Takes your Tumblr API Key, and evaluates an monadic expression in a 'ReaderT'
-   whose context is the key. It relies on 'MonadIO' to create a default
-   'N.Manager'. Due to not having an authentication token, this can only be used
-   to run unauthentified queries.
+class HasNetworkConfig a m where
+  getNetworkConfig :: a -> NetworkConfig m
 
-   > withApiKey networkLayer key $ callT $ getBlogInfo "myblog.tumblr.com"
--}
-withAPIKey :: NetworkConfig (Base m) -> APIKey -> SimpleAPIKeyMonad m r -> m r
-withAPIKey nl key e = runReaderT e $ JustAPIKey nl key
+class HasTumblrK a m where
+  getTumblrK :: a -> TumblrK m
 
-{- | Similar to 'withAPIKey', except that it carries an authentication token
-   instead of only having the key. All queries can therefore be used.
+class HasTumblrA a m where
+  getTumblrA :: a -> TumblrA m
 
-   > withAuth networkLayer credentials $ callT =<< postNewBlogText "myblog.tumblr.com" "test"
--}
-withAuth :: NetworkConfig (Base m) -> AuthCred -> SimpleAuthCredMonad m r -> m r
-withAuth nl auth e = runReaderT e $ JustAuthCred nl auth
 
-{- | A wrapper around 'withReaderT' that adds a blog id to the current context,
-   allowing you to use the query variants that do not explictly need the blog
-   name.
+instance HasNetworkConfig (TumblrK m) m where getNetworkConfig = networkConfig
+instance HasTumblrK       (TumblrK m) m where getTumblrK = id
 
-   > withAPIKey k $ withBlog "myblog.tumblr.com" $ callT =<< getInfo
--}
-withBlog :: BlogId -> ReaderT (BlogContext c) m r -> ReaderT c m r
-withBlog bid = withReaderT $ BlogContext bid
+instance HasNetworkConfig (TumblrA m) m where getNetworkConfig = networkConfig . tumblrK
+instance HasTumblrK       (TumblrA m) m where getTumblrK = tumblrK
+instance HasTumblrA       (TumblrA m) m where getTumblrA = id
+
+type MonadTumblrK r b m = (MonadReader r m, MonadBase b m, HasTumblrK r b)
+type MonadTumblrA r b m = (MonadReader r m, MonadBase b m, HasTumblrA r b)
+
+
+
+-- calling the network
+
+type MonadQueryK r b m i o = (MonadTumblrK r b m, Decode i o, APIKeyCommand i)
+type MonadQueryA r b m i o = (MonadTumblrA r b m, Decode i o, OAuthCommand  i)
+
+callKE :: (MonadQueryK r b m i o, MonadError Error m) => Query i -> m o
+callKT :: (MonadQueryK r b m i o, MonadThrow m)       => Query i -> m o
+callK  ::  MonadQueryK r b m i o                      => Query i -> m (Either Error o)
+callKE = either throwError return <=< callK
+callKT = either throw      return <=< callK
+callK q = do
+  k <- asks getTumblrK
+  fmap (decode q) $ liftBase $ networkSend (networkConfig k) $ mkAPIKeyRequest (apiKey k) q
+
+callAE :: (MonadQueryA r b m i o, MonadError Error m) => Query i -> m o
+callAT :: (MonadQueryA r b m i o, MonadThrow m)       => Query i -> m o
+callA  ::  MonadQueryA r b m i o                      => Query i -> m (Either Error o)
+callAE = either throwError return <=< callA
+callAT = either throw      return <=< callA
+callA q = do
+  TumblrA (TumblrK nc ak) as ac <- asks getTumblrA
+  r <- liftBase $ mkOAuthRequest (requestSign nc (tumblrOAuth ak as) ac) ak q
+  fmap (decode q) $ liftBase $ networkSend nc r
+
+
+
+-- simple Reader wrappers
+
+withAPIKey :: NetworkConfig b -> AppKey -> ReaderT (TumblrK b) b a -> b a
+withAPIKey nc ak = with $ TumblrK nc ak
+
+withOAuth :: NetworkConfig b -> AppKey -> AppSecret -> OA.Credential -> ReaderT (TumblrA b) b a -> b a
+withOAuth nc ak as ac = with $ TumblrA (TumblrK nc ak) as ac
 
 
 
 -- auth simple helpers
 
 type URLCallback m = String -> m String
-
 
 {- | A very simple wrapper around "Web.Authenticate.OAuth"'s functions. The
    'URLCallback' paranameter is a callback that expects the authentication URL
@@ -108,79 +137,24 @@ getSimpleAuthCred callback manager oauth = do
   cred     <- OA.getAccessToken oauth newCred manager
   return (oauth, cred)
 
-{- | Same as 'getSimpleAuthCred', but expects to run in a 'MonadReader' that has a
-   'N.Manager'.
--}
-getSimpleAuthCredM :: (MonadIO m, MonadReader c m, N.HasHttpManager c) => URLCallback m -> OAuth -> m AuthCred
-getSimpleAuthCredM callback oauth = do
-  manager <- asks N.getHttpManager
-  getSimpleAuthCred callback manager oauth
-
-{- | Same as 'getSimpleAuthCred', but creates a default 'N.Manager'.
--}
-getSimpleDebugAuthCred :: MonadIO m => URLCallback m -> OAuth -> m AuthCred
-getSimpleDebugAuthCred callback oauth = do
-  manager <- defaultManager
-  getSimpleAuthCred callback manager oauth
-
-checkAuthValidity :: MonadMaybeAuth r m => m Bool
+checkAuthValidity :: MonadTumblrA r b m => m Bool
 checkAuthValidity = do
-  res <- call $ getBlogInfo "test.tumblr.com"
+  res <- callA $ getBlogInfo "test.tumblr.com"
   return $ either (== undefined) (const False) res
 
 
 
--- internal simple contexts
+-- simple network usage
 
-data JustAPIKey   m = JustAPIKey   { jakNetworkConfig :: NetworkConfig m, jakAPIKey   :: APIKey   }
-data JustAuthCred m = JustAuthCred { jacNetworkConfig :: NetworkConfig m, jacAuthCred :: AuthCred }
-data BlogContext  c = BlogContext  { ctxBlog :: BlogId, ctx :: c }
+defaultManager :: MonadIO m => m N.Manager
+defaultManager = liftIO $ N.newManager N.tlsManagerSettings
 
+defaultIONetworkConfig :: N.Manager -> NetworkConfig IO
+defaultIONetworkConfig m = NetworkConfig sign send
+  where sign = OA.signOAuth
+        send = flip N.httpLbs m
 
-instance HasAPIKey (JustAPIKey m) where
-  getAPIKey = jakAPIKey
-
-instance HasAPIKey (JustAuthCred m) where
-  getAPIKey = APIKey . OA.oauthConsumerKey . fst . jacAuthCred
-
-instance HasAPIKey c => HasAPIKey (BlogContext c) where
-  getAPIKey = getAPIKey . ctx
-
-
-instance MayHaveAuthCred (JustAuthCred m)
-instance HasAuthCred (JustAuthCred m) where
-  getAuthCred = jacAuthCred
-
-instance MayHaveAuthCred c => MayHaveAuthCred (BlogContext c) where
-  maybeGetAuthCred = maybeGetAuthCred . ctx
-
-instance HasAuthCred c => HasAuthCred (BlogContext c) where
-  getAuthCred = getAuthCred . ctx
-
-
-instance HasBlogId (BlogContext c) where
-  getBlogId = ctxBlog
-
-
-instance HasNetworkConfig (JustAPIKey m) where
-  type NetworkConfigBase (JustAPIKey m) = m
-  getNetworkConfig = jakNetworkConfig
-
-instance HasNetworkConfig (JustAuthCred m) where
-  type NetworkConfigBase (JustAuthCred m) = m
-  getNetworkConfig = jacNetworkConfig
-
-instance HasNetworkConfig c => HasNetworkConfig (BlogContext c) where
-  type NetworkConfigBase (BlogContext c) = NetworkConfigBase c
-  getNetworkConfig = getNetworkConfig . ctx
-
-
-instance N.HasHttpManager (JustAPIKey m) where
-  getHttpManager = N.getHttpManager . jakNetworkConfig
-
-instance N.HasHttpManager (JustAuthCred m) where
-  getHttpManager = N.getHttpManager . jacNetworkConfig
-
-instance N.HasHttpManager c => N.HasHttpManager (BlogContext c) where
-  getHttpManager = N.getHttpManager . ctx
- -}
+makeMockNetworkConfig :: [(String, String)] -> NetworkConfig Identity
+makeMockNetworkConfig reqMap = NetworkConfig sign send
+  where sign _ (OA.Credential creds) = return . appendParams creds
+        send req = return $ maybe undefined undefined $ lookup (show req) reqMap

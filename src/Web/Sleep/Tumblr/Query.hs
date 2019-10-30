@@ -1,14 +1,15 @@
-{-# LANGUAGE IncoherentInstances #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE ConstraintKinds            #-}
 {-# LANGUAGE DataKinds                  #-}
 {-# LANGUAGE DefaultSignatures          #-}
-{-# LANGUAGE ExistentialQuantification #-}
-{-# LANGUAGE FunctionalDependencies #-}
+{-# LANGUAGE ExistentialQuantification  #-}
+{-# LANGUAGE FlexibleContexts           #-}
+{-# LANGUAGE FunctionalDependencies     #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE KindSignatures #-}
+{-# LANGUAGE IncoherentInstances        #-}
+{-# LANGUAGE KindSignatures             #-}
+{-# LANGUAGE MultiParamTypeClasses      #-}
 {-# LANGUAGE MultiWayIf                 #-}
+{-# LANGUAGE OverloadedStrings          #-}
 
 
 
@@ -21,24 +22,24 @@ module Web.Sleep.Tumblr.Query where
 -- imports
 
 import           Data.Aeson
-import qualified Data.ByteString                  as B  (ByteString)
-import qualified Data.ByteString.Lazy             as LB (ByteString)
-import qualified Data.Map.Strict                  as M
+import qualified Data.ByteString           as B (ByteString)
+import qualified Data.ByteString.Lazy      as LB (ByteString)
+import           Data.List                 as L
+import qualified Data.Map.Strict           as M
 import           Data.String
 import           Data.Time.Clock
 import           Data.Typeable
-import Data.List as L
-import qualified Network.HTTP.Client              as N
-import qualified Network.HTTP.Types.Header        as N
-import qualified Network.HTTP.Types.Method        as N
-import qualified Network.URI.Encode               as N
+import qualified Network.HTTP.Client       as N
+import qualified Network.HTTP.Types.Header as N
+import qualified Network.HTTP.Types.Method as N
+import qualified Network.URI.Encode        as N
 
-import           Web.Sleep.Libs.Request
 import           Web.Sleep.Common.Misc
+import           Web.Sleep.Libs.Request
 import           Web.Sleep.Tumblr.Auth
+import           Web.Sleep.Tumblr.Data
 import           Web.Sleep.Tumblr.Error
 import           Web.Sleep.Tumblr.Response
-import           Web.Sleep.Tumblr.Data
 
 
 
@@ -100,11 +101,11 @@ class OAuthCommand q where
   mkOAuthRequest :: OAuthFunction m -> AppKey -> Query q -> m N.Request
   mkOAuthRequest = mkOAuthReq
 
-class OAuthCommand q => APICommand q where
-  mkAPIRequest :: AppKey -> Query q -> N.Request
-  mkAPIRequest = mkAPIReq
+class OAuthCommand q => APIKeyCommand q where
+  mkAPIKeyRequest :: AppKey -> Query q -> N.Request
+  mkAPIKeyRequest = mkAPIKeyReq
 
-class APICommand q => Command q where
+class APIKeyCommand q => Command q where
   mkRequest :: Query q -> N.Request
   mkRequest = mkReq
 
@@ -124,11 +125,11 @@ mkReq q = if | N.method req == N.methodGet  -> req
              | otherwise                    -> error "mkReq: unsupported method type"
   where req = appendParams (M.elems $ params q) $ baseRequest q
 
-mkAPIReq :: AppKey -> Query q -> N.Request
-mkAPIReq k = appendParam ("api_key", k) . mkReq
+mkAPIKeyReq :: AppKey -> Query q -> N.Request
+mkAPIKeyReq k = appendParam ("api_key", k) . mkReq
 
 mkOAuthReq :: OAuthFunction m -> AppKey -> Query q -> m N.Request
-mkOAuthReq = (... mkAPIReq)
+mkOAuthReq = (... mkAPIKeyReq)
 
 
 
@@ -178,40 +179,40 @@ instance ToParameter PRange   where mkParam (POffset   o) = ("offset",    fromSt
 
 -- blog info
 
-instance QueryMethod  'GetBlogInfo where getMethod = const N.methodGet
-instance OAuthCommand 'GetBlogInfo
-instance APICommand   'GetBlogInfo
-instance Decode       'GetBlogInfo Blog
+instance QueryMethod   'GetBlogInfo where getMethod = const N.methodGet
+instance OAuthCommand  'GetBlogInfo
+instance APIKeyCommand 'GetBlogInfo
+instance Decode        'GetBlogInfo Blog
 
 getBlogInfo :: BlogId -> Query 'GetBlogInfo
-getBlogInfo (BlogId bid) = mkQuery_ bid "/info" []
+getBlogInfo (BlogId bid) = mkQuery bid "/info" []
 
 
 
 -- blog avatar
 
-instance QueryMethod  'GetBlogAvatar where getMethod = const N.methodGet
-instance OAuthCommand 'GetBlogAvatar
-instance APICommand   'GetBlogAvatar
-instance Command      'GetBlogAvatar
-instance Decode       'GetBlogAvatar PNGImage where decode = const decodePNG
+instance QueryMethod   'GetBlogAvatar where getMethod = const N.methodGet
+instance OAuthCommand  'GetBlogAvatar
+instance APIKeyCommand 'GetBlogAvatar
+instance Command       'GetBlogAvatar
+instance Decode        'GetBlogAvatar PNGImage where decode = const decodePNG
 
 getBlogAvatar :: BlogId -> AvatarSize -> Query 'GetBlogAvatar
-getBlogAvatar (BlogId bid) s = mkQuery_ bid ("/avatar/" ++ show s) []
+getBlogAvatar (BlogId bid) s = mkQuery bid ("/avatar/" ++ show s) []
 
 
 
 -- blog likes
 
-instance QueryMethod  'GetBlogLikes where getMethod = const N.methodGet
-instance OAuthCommand 'GetBlogLikes
-instance APICommand   'GetBlogLikes
-instance Decode       'GetBlogLikes PostList
-instance QueryParam   'GetBlogLikes Limit
-instance QueryParam   'GetBlogLikes PRange
+instance QueryMethod   'GetBlogLikes where getMethod = const N.methodGet
+instance OAuthCommand  'GetBlogLikes
+instance APIKeyCommand 'GetBlogLikes
+instance Decode        'GetBlogLikes PostList
+instance QueryParam    'GetBlogLikes Limit
+instance QueryParam    'GetBlogLikes PRange
 
 getBlogLikes :: BlogId -> Query 'GetBlogLikes
-getBlogLikes (BlogId bid) = mkQuery_ bid "/likes" []
+getBlogLikes (BlogId bid) = mkQuery bid "/likes" []
 
 
 
@@ -224,7 +225,7 @@ instance QueryParam   'GetBlogFollowees Limit
 instance QueryParam   'GetBlogFollowees Offset
 
 getBlogFollowees :: BlogId -> Query 'GetBlogFollowees
-getBlogFollowees (BlogId bid) = mkQuery_ bid "/following" []
+getBlogFollowees (BlogId bid) = mkQuery bid "/following" []
 
 
 
@@ -237,40 +238,40 @@ instance QueryParam   'GetBlogFollowers Limit
 instance QueryParam   'GetBlogFollowers Offset
 
 getBlogFollowers :: BlogId -> Query 'GetBlogFollowers
-getBlogFollowers (BlogId bid) = mkQuery_ bid "/followers" []
+getBlogFollowers (BlogId bid) = mkQuery bid "/followers" []
 
 
 
 -- blog post
 
-instance QueryMethod  'GetPost where getMethod = const N.methodGet
-instance OAuthCommand 'GetPost
-instance APICommand   'GetPost
-instance Decode       'GetPost PostList
+instance QueryMethod   'GetPost where getMethod = const N.methodGet
+instance OAuthCommand  'GetPost
+instance APIKeyCommand 'GetPost
+instance Decode        'GetPost PostList
 
 getPost :: BlogId -> PostId -> Query 'GetPost
-getPost (BlogId bid) pid = mkQuery_ bid "/posts" qs
+getPost (BlogId bid) pid = mkQuery bid "/posts" qs
   where qs = [("id", fromString $ show pid)]
 
 
 
 -- blog posts
 
-instance QueryMethod  'GetPosts where getMethod = const N.methodGet
-instance OAuthCommand 'GetPosts
-instance APICommand   'GetPosts
-instance Decode       'GetPosts PostList
-instance QueryParam   'GetPosts Before
-instance QueryParam   'GetPosts Limit
-instance QueryParam   'GetPosts Offset
-instance QueryParam   'GetPosts Filter
-instance QueryParam   'GetPosts Tag
+instance QueryMethod   'GetPosts where getMethod = const N.methodGet
+instance OAuthCommand  'GetPosts
+instance APIKeyCommand 'GetPosts
+instance Decode        'GetPosts PostList
+instance QueryParam    'GetPosts Before
+instance QueryParam    'GetPosts Limit
+instance QueryParam    'GetPosts Offset
+instance QueryParam    'GetPosts Filter
+instance QueryParam    'GetPosts Tag
 
 getPosts :: BlogId -> Query 'GetPosts
-getPosts (BlogId bid) = mkQuery_ bid "/posts" []
+getPosts (BlogId bid) = mkQuery bid "/posts" []
 
 getPostsByType :: BlogId -> PostType -> Query 'GetPosts
-getPostsByType (BlogId bid) t = mkQuery_ bid ("/posts/" ++ show t) []
+getPostsByType (BlogId bid) t = mkQuery bid ("/posts/" ++ show t) []
 
 
 
@@ -284,7 +285,7 @@ instance QueryParam   'GetQueuedPosts Offset
 instance QueryParam   'GetQueuedPosts Filter
 
 getQueuedPosts :: BlogId -> Query 'GetQueuedPosts
-getQueuedPosts (BlogId bid) = mkQuery_ bid "/posts/queue" []
+getQueuedPosts (BlogId bid) = mkQuery bid "/posts/queue" []
 
 
 
@@ -297,7 +298,7 @@ instance QueryParam   'GetDraftPosts BeforeId
 instance QueryParam   'GetDraftPosts Filter
 
 getDraftPosts :: BlogId -> Query 'GetDraftPosts
-getDraftPosts (BlogId bid) = mkQuery_ bid "/posts/draft" []
+getDraftPosts (BlogId bid) = mkQuery bid "/posts/draft" []
 
 
 
@@ -311,15 +312,15 @@ instance QueryParam   'PostText Title
 instance QueryParam   'PostText State
 
 postNewText :: BlogId -> String -> Query 'PostText
-postNewText (BlogId bid) b = mkQuery_ bid "/post" qs
+postNewText (BlogId bid) b = mkQuery bid "/post" qs
   where qs = [("type", "text"), ("body", fromString b)]
 
 
 
 -- local helpers
 
-mkQuery_ :: QueryMethod q => String -> String -> [Parameter] -> Query q
-mkQuery_ bid path qs = resultQuery
+mkQuery :: QueryMethod q => String -> String -> [Parameter] -> Query q
+mkQuery bid path qs = resultQuery
   where resultQuery = Query req M.empty
         req = appendParams qs $
               N.defaultRequest { N.path   = fromString $ "/v2/blog/" ++ bid ++ path
