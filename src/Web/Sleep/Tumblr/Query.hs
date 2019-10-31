@@ -77,10 +77,10 @@ class ToParameter p => QueryParam (q :: QueryName) p where
   pAdd :: p -> Query q -> Query q
   pAdd p q = q { params = M.insert (typeOf p) (mkParam p) $ params q }
 
-data ParameterItem q = forall p . (QueryParam q p) => PItem p
+data ParameterItem q = forall p . (QueryParam q p) => Param p
 
 (&=) :: Query q -> [ParameterItem q] -> Query q
-(&=) = L.foldl' $ \q (PItem p) -> pAdd p q
+(&=) = L.foldl' $ \q (Param p) -> pAdd p q
 
 
 

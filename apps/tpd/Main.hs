@@ -1,10 +1,13 @@
-{-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE DeriveGeneric         #-}
+{-# LANGUAGE FlexibleInstances     #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 
 
 -- imports
 
 import           Control.Exception
 import           Control.Monad
+import           Control.Monad.Base
 import           Control.Monad.Reader
 import           Control.Monad.Trans.Resource
 import           Data.Aeson
@@ -103,23 +106,32 @@ protect mutex action = finally (lock mutex >> action) $ unlock mutex
 
 
 
+-- sigh
+
+instance MonadBase IO (ResourceT IO) where
+  liftBase = lift
+
+
+
 -- main
 
-type SimpleMonad = SimpleAPIKeyBlogMonad (ResourceT IO)
+type TPDMonad = ReaderT (TumblrK IO) (ResourceT IO)
 
-downloadPhoto :: Config -> (Int, Int, String) -> SimpleMonad ()
+downloadPhoto :: Config -> (Int, Int, String) -> TPDMonad ()
 downloadPhoto config (pid, index, url) = do
   let filepath = configOutDir config </> show pid ++ "-" ++ show index
   req <- parseRequest url
   liftIO $ logInfo $ printf "downloading %s from %s" filepath url
   withResponse req $ \resp -> runConduit $ responseBody resp .| sinkFile filepath
 
-downloadPhotos :: Config -> Int -> SimpleMonad Int
-downloadPhotos config o = do
-  (PostList posts) <- callT $ getPostsByType PhotoType &= Offset o &= Limit 20
+downloadPhotos :: BlogId -> Config -> Int -> TPDMonad Int
+downloadPhotos b config o = do
+  (PostList posts) <- callKT $ getPostsByType b PhotoType &= [ Param (Offset o)
+                                                             , Param (Limit 20)
+                                                             ]
   let recentEnough = [post | post <- posts, pId (postBase post) > configLastId config]
       remaining = length recentEnough
-  when (remaining == 20) $ void $ downloadPhotos config $ o + 20
+  when (remaining == 20) $ void $ downloadPhotos b config $ o + 20
   when (remaining > 0) $ liftIO $ logInfo $ printf "%d file(s) remaining" $ length recentEnough
   forM_ [ ( pId $ postBase post
           , index
@@ -142,6 +154,5 @@ main = logFatalOnException $ do
   lastId  <- protect mutex    $
     runResourceT              $
     withAPIKey network apiKey $
-    withBlog (BlogId blog)    $
-    downloadPhotos config 0
+    downloadPhotos (fromString blog) config 0
   writeConfig blog $ config { configLastId = lastId }
