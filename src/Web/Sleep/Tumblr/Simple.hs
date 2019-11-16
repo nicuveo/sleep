@@ -11,11 +11,31 @@ experience with the Tumblr API.
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedStrings     #-}
 
+{-# OPTIONS_GHC -fno-warn-orphans #-}
+
 
 
 -- module
 
-module Web.Sleep.Tumblr.Simple where
+module Web.Sleep.Tumblr.Simple (
+  NetworkConfig(..),
+  TumblrK,
+  TumblrA,
+  callKE,
+  callKT,
+  callK,
+  callAE,
+  callAT,
+  callA,
+  withAPIKey,
+  withOAuth,
+  getSimpleAuthCred,
+  checkAuthValidity,
+  defaultManager,
+  defaultIONetworkConfig,
+  makeMockNetworkConfig,
+  cliURLCallback,
+  ) where
 
 
 
@@ -34,7 +54,6 @@ import           System.IO
 import qualified Web.Authenticate.OAuth  as OA
 
 import           Web.Sleep.Common.Misc
-import           Web.Sleep.Libs.Request
 import           Web.Sleep.Tumblr
 
 
@@ -42,8 +61,7 @@ import           Web.Sleep.Tumblr
 -- context data
 
 data NetworkConfig m = NetworkConfig
-  { requestSign :: OA.OAuth -> OA.Credential -> N.Request -> m N.Request
-  , networkSend :: N.Request -> m (N.Response LB.ByteString)
+  { networkSend :: N.Request -> m (N.Response LB.ByteString)
   , httpManager :: N.Manager
   }
 
@@ -53,17 +71,13 @@ data TumblrK m = TumblrK
   }
 
 data TumblrA m = TumblrA
-  { tumblrK       :: TumblrK m
-  , appSecret     :: AppSecret
-  , appCredential :: OA.Credential
+  { tumblrK     :: TumblrK m
+  , requestSign :: OAuthFunction m
   }
 
 
 
 -- access to context
-
-class HasNetworkConfig a m where
-  getNetworkConfig :: a -> NetworkConfig m
 
 class HasTumblrK a m where
   getTumblrK :: a -> TumblrK m
@@ -72,12 +86,10 @@ class HasTumblrA a m where
   getTumblrA :: a -> TumblrA m
 
 
-instance HasNetworkConfig (TumblrK m) m where getNetworkConfig = networkConfig
 instance N.HasHttpManager (TumblrK m)   where getHttpManager = httpManager . networkConfig
 instance HasTumblrK       (TumblrK m) m where getTumblrK = id
 
 instance N.HasHttpManager (TumblrA m)   where getHttpManager = httpManager . networkConfig . tumblrK
-instance HasNetworkConfig (TumblrA m) m where getNetworkConfig = networkConfig . tumblrK
 instance HasTumblrK       (TumblrA m) m where getTumblrK = tumblrK
 instance HasTumblrA       (TumblrA m) m where getTumblrA = id
 
@@ -106,8 +118,8 @@ callA  ::  MonadQueryA r b m i o                      => Query i -> m (Either Er
 callAE = either throwError return <=< callA
 callAT = either throw      return <=< callA
 callA q = do
-  TumblrA (TumblrK nc ak) as ac <- asks getTumblrA
-  r <- liftBase $ mkOAuthRequest (requestSign nc (tumblrOAuth ak as) ac) ak q
+  TumblrA (TumblrK nc ak) sf <- asks getTumblrA
+  r <- liftBase $ mkOAuthRequest sf ak q
   fmap (decode q) $ liftBase $ networkSend nc r
 
 
@@ -117,8 +129,8 @@ callA q = do
 withAPIKey :: NetworkConfig b -> AppKey -> ReaderT (TumblrK b) m a -> m a
 withAPIKey nc ak = with $ TumblrK nc ak
 
-withOAuth :: NetworkConfig b -> AppKey -> AppSecret -> OA.Credential -> ReaderT (TumblrA b) m a -> m a
-withOAuth nc ak as ac = with $ TumblrA (TumblrK nc ak) as ac
+withOAuth :: NetworkConfig b -> AppKey -> OAuthFunction b -> ReaderT (TumblrA b) m a -> m a
+withOAuth nc ak sf = with $ TumblrA (TumblrK nc ak) sf
 
 
 
@@ -153,14 +165,12 @@ defaultManager :: MonadIO m => m N.Manager
 defaultManager = liftIO $ N.newManager N.tlsManagerSettings
 
 defaultIONetworkConfig :: N.Manager -> NetworkConfig IO
-defaultIONetworkConfig m = NetworkConfig sign send m
-  where sign = OA.signOAuth
-        send = flip N.httpLbs m
+defaultIONetworkConfig m = NetworkConfig send m
+  where send = flip N.httpLbs m
 
 makeMockNetworkConfig :: [(String, String)] -> NetworkConfig Identity
-makeMockNetworkConfig reqMap = NetworkConfig sign send m
-  where sign _ (OA.Credential creds) = return . appendParams creds
-        send req = return $ maybe undefined undefined $ lookup (show req) reqMap
+makeMockNetworkConfig reqMap = NetworkConfig send m
+  where send req = return $ maybe undefined undefined $ lookup (show req) reqMap
         m = error "tried to access mock manager"
 
 cliURLCallback :: URLCallback IO
