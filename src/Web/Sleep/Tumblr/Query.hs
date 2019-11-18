@@ -3,11 +3,11 @@
 {-# LANGUAGE DefaultSignatures          #-}
 {-# LANGUAGE ExistentialQuantification  #-}
 {-# LANGUAGE FlexibleContexts           #-}
+{-# LANGUAGE FlexibleInstances          #-}
 {-# LANGUAGE FunctionalDependencies     #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE IncoherentInstances        #-}
 {-# LANGUAGE KindSignatures             #-}
-{-# LANGUAGE MultiParamTypeClasses      #-}
 {-# LANGUAGE MultiWayIf                 #-}
 {-# LANGUAGE OverloadedStrings          #-}
 
@@ -24,7 +24,6 @@ module Web.Sleep.Tumblr.Query where
 import           Data.Aeson
 import qualified Data.ByteString           as B (ByteString)
 import qualified Data.ByteString.Lazy      as LB (ByteString)
-import           Data.List                 as L
 import qualified Data.Map.Strict           as M
 import           Data.String
 import           Data.Time.Clock
@@ -77,10 +76,9 @@ class ToParameter p => QueryParam (q :: QueryName) p where
   pAdd :: p -> Query q -> Query q
   pAdd p q = q { params = M.insert (typeOf p) (mkParam p) $ params q }
 
-data ParameterItem q = forall p . (QueryParam q p) => Param p
-
-(&=) :: Query q -> [ParameterItem q] -> Query q
-(&=) = L.foldl' $ \q (Param p) -> pAdd p q
+(&=) :: QueryParam q p => Query q -> p -> Query q
+(&=) = flip pAdd
+infixl 8 &=
 
 
 

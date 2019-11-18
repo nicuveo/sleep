@@ -1,3 +1,5 @@
+{-# LANGUAGE FlexibleContexts    #-}
+{-# LANGUAGE OverloadedStrings   #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
@@ -27,8 +29,8 @@ import           Test.Tasty.HUnit
 import           Test.Tasty.QuickCheck
 
 import           Web.Sleep.Common.Misc
-import           Web.Sleep.Tumblr.Call
 import           Web.Sleep.Tumblr.Data
+import           Web.Sleep.Tumblr.Response
 
 
 
@@ -108,11 +110,11 @@ instance Arbitrary BlogSummaryList where
 instance Arbitrary PostList where
   arbitrary = PostList <$> a `suchThat` (\l -> length l < 5)
 
-checkStability :: (Eq a, ToJSON a, Decode a) => a -> Bool
-checkStability x = Right x == decode ( makeMockResponse "text/json" $
-                                       makeMockEnvelope $
-                                       encode x
-                                     )
+checkStability :: (Eq a, ToJSON a, FromJSON (Envelope a)) => a -> Bool
+checkStability x = Right x == decodeJSON ( makeMockResponse "text/json" $
+                                           makeMockEnvelope $
+                                           encode x
+                                         )
 
 makeMockEnvelope :: LB.ByteString -> LB.ByteString
 makeMockEnvelope x = LB.concat [ "\
@@ -182,15 +184,15 @@ testPNGImageURL :: TestTree
 testPNGImageURL = testCase "stability of PNGImage (url)" assertion
   where url       = "http://static.tumblr.com/avatars/test.tumblr.com/512"
         image     = ImageURI $ fromJust $ N.parseURI url
-        assertion = Right image @=? decode ( makeMockResponse "text/json" $
-                                             makeMockEnvelope $
-                                             LB.concat [ "{ \"avatar_url\": \""
-                                                       , fromString url
-                                                       , "\" }"
-                                                       ])
+        assertion = Right image @=? decodeJSON ( makeMockResponse "text/json" $
+                                                 makeMockEnvelope $
+                                                 LB.concat [ "{ \"avatar_url\": \""
+                                                           , fromString url
+                                                           , "\" }"
+                                                           ])
 
 testPNGRawImage :: TestTree
 testPNGRawImage = testCase "stability of PNGImage (raw)" assertion
   where rawData   = "PNG\NUL\NUL\NULrawdata"
         image     = ImageRawData rawData
-        assertion = Right image @=? decode (makeMockResponse "image/png" rawData)
+        assertion = Right image @=? decodePNG (makeMockResponse "image/png" rawData)

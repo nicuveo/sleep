@@ -23,6 +23,7 @@ dependencies:
   - data-has
   - http-client
   - http-client-tls
+  - http-conduit
   - http-types
   - mtl
   - network-uri

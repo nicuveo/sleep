@@ -19,11 +19,13 @@ experience with the Tumblr API.
 
 module Web.Sleep.Tumblr.Simple (
   NetworkConfig(..),
-  TumblrK,
-  TumblrA,
+  TumblrK(TumblrK),
+  TumblrA(TumblrA),
+  callTumblrK,
   callKE,
   callKT,
   callK,
+  callTumblrA,
   callAE,
   callAT,
   callA,
@@ -71,8 +73,8 @@ data TumblrK m = TumblrK
   }
 
 data TumblrA m = TumblrA
-  { tumblrK     :: TumblrK m
-  , requestSign :: OAuthFunction m
+  { tumblrK :: TumblrK m
+  , _sign   :: OAuthFunction m
   }
 
 
@@ -103,6 +105,9 @@ type MonadTumblrA r b m = (MonadReader r m, MonadBase b m, HasTumblrA r b)
 type MonadQueryK r b m i o = (MonadTumblrK r b m, Decode i o, APIKeyCommand i)
 type MonadQueryA r b m i o = (MonadTumblrA r b m, Decode i o, OAuthCommand  i)
 
+callTumblrK :: (Monad m, Decode i o, APIKeyCommand i) => TumblrK m -> Query i -> m (Either Error o)
+callTumblrK k q = fmap (decode q) $ networkSend (networkConfig k) $ mkAPIKeyRequest (apiKey k) q
+
 callKE :: (MonadQueryK r b m i o, MonadError Error m) => Query i -> m o
 callKT :: (MonadQueryK r b m i o, MonadThrow m)       => Query i -> m o
 callK  ::  MonadQueryK r b m i o                      => Query i -> m (Either Error o)
@@ -110,7 +115,11 @@ callKE = either throwError return <=< callK
 callKT = either throw      return <=< callK
 callK q = do
   k <- asks getTumblrK
-  fmap (decode q) $ liftBase $ networkSend (networkConfig k) $ mkAPIKeyRequest (apiKey k) q
+  liftBase $ callTumblrK k q
+
+callTumblrA :: (Monad m, Decode i o, OAuthCommand i) => TumblrA m -> Query i -> m (Either Error o)
+callTumblrA a q = fmap (decode q) . networkSend nc =<< mkOAuthRequest sf ak q
+  where TumblrA (TumblrK nc ak) sf = a
 
 callAE :: (MonadQueryA r b m i o, MonadError Error m) => Query i -> m o
 callAT :: (MonadQueryA r b m i o, MonadThrow m)       => Query i -> m o
@@ -118,9 +127,8 @@ callA  ::  MonadQueryA r b m i o                      => Query i -> m (Either Er
 callAE = either throwError return <=< callA
 callAT = either throw      return <=< callA
 callA q = do
-  TumblrA (TumblrK nc ak) sf <- asks getTumblrA
-  r <- liftBase $ mkOAuthRequest sf ak q
-  fmap (decode q) $ liftBase $ networkSend nc r
+  a <- asks getTumblrA
+  liftBase $ callTumblrA a q
 
 
 
@@ -176,6 +184,6 @@ makeMockNetworkConfig reqMap = NetworkConfig send m
 cliURLCallback :: URLCallback IO
 cliURLCallback url = do
   putStrLn $ "Please authorize this tool at: " ++ url
-  putStr   $ "Please input the validation token: "
+  putStr "Please input the validation token: "
   hFlush stdout
   getLine

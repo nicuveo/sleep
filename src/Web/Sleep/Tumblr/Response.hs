@@ -9,6 +9,7 @@
 module Web.Sleep.Tumblr.Response (
   Envelope,
   decodeJSON,
+  getResponse,
   ) where
 
 
@@ -31,11 +32,11 @@ import           Web.Sleep.Tumblr.Error
 
 newtype Envelope a = Envelope { getRes :: Either Error a } deriving Show
 
+instance {-# OVERLAPPING #-} FromJSON (Envelope ()) where
+  parseJSON = parseEnvelopeWith $ \_ -> return $ Envelope $ Right ()
+
 instance FromJSON a => FromJSON (Envelope a) where
   parseJSON = parseEnvelope
-
-instance {-# OVERLAPS #-} FromJSON (Envelope ()) where
-  parseJSON = parseEnvelopeWith $ \_ -> return $ Envelope $ Right ()
 
 
 
@@ -63,10 +64,10 @@ instance FromJSON Meta where
 jsonError :: String -> Error
 jsonError = ClientError 1 -- FIXME
 
-getResponse :: (FromJSON (Envelope a)) => ByteString -> Either Error a
+getResponse :: FromJSON (Envelope a) => ByteString -> Either Error a
 getResponse = getRes <=< left jsonError . eitherDecode'
 
-parseEnvelope :: FromJSON a => Value -> Parser (Envelope a)
+parseEnvelope :: FromJSON a  => Value -> Parser (Envelope a)
 parseEnvelope = parseEnvelopeWith $ \o -> Envelope . Right <$> o .: "response"
 
 parseEnvelopeWith :: (Object -> Parser (Envelope a)) -> Value -> Parser (Envelope a)

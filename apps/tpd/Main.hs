@@ -1,6 +1,7 @@
 {-# LANGUAGE DeriveGeneric         #-}
 {-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# OPTIONS_GHC -fno-warn-orphans #-}
 
 
 
@@ -127,9 +128,7 @@ downloadPhoto config (pid, index, url) = do
 
 downloadPhotos :: BlogId -> Config -> Int -> TPDMonad Int
 downloadPhotos b config o = do
-  (PostList posts) <- callKT $ getPostsByType b PhotoType &= [ Param (Offset o)
-                                                             , Param (Limit 20)
-                                                             ]
+  (PostList posts) <- callKT $ getPostsByType b PhotoType &= Offset o &= Limit 20
   let recentEnough = [post | post <- posts, pId (postBase post) > configLastId config]
       remaining = length recentEnough
   when (remaining == 20) $ void $ downloadPhotos b config $ o + 20

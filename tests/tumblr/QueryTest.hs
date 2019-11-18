@@ -1,3 +1,7 @@
+{-# LANGUAGE OverloadedStrings #-}
+
+
+
 -- module
 
 module QueryTest (tests) where
@@ -7,14 +11,12 @@ module QueryTest (tests) where
 -- imports
 
 import           Control.Monad.Identity
-import           Control.Monad.Reader
-import           Data.ByteString
+import qualified Network.HTTP.Client    as N
 import           Test.Tasty
 import           Test.Tasty.HUnit
-import qualified Web.Authenticate.OAuth  as OA
 
-import           Web.Sleep.Common.Network
 import           Web.Sleep.Common.Misc
+import           Web.Sleep.Libs.Request
 import           Web.Sleep.Tumblr.Auth
 import           Web.Sleep.Tumblr.Query
 
@@ -22,42 +24,12 @@ import           Web.Sleep.Tumblr.Query
 
 -- helpers
 
-data TestContext     = TestContext     { c1 :: NetworkConfig Identity, key1 :: ByteString }
-data TestAuthContext = TestAuthContext { c2 :: NetworkConfig Identity, key2 :: ByteString, token :: ByteString }
+uk :: APIKeyCommand q => AppKey -> Query q -> String
+uk = show . N.getUri ... mkAPIKeyRequest
 
-
-instance HasNetworkConfig TestContext where
-  type NetworkConfigBase TestContext = Identity
-  getNetworkConfig = c1
-
-instance HasNetworkConfig TestAuthContext where
-  type NetworkConfigBase TestAuthContext = Identity
-  getNetworkConfig = c2
-
-
-instance HasAPIKey TestContext where
-  getAPIKey = APIKey . key1
-
-instance HasAPIKey TestAuthContext where
-  getAPIKey = APIKey . key2
-
-instance MayHaveAuthCred TestAuthContext
-instance HasAuthCred     TestAuthContext where
-  getAuthCred c = ( tumblrOAuth (key2 c) "SECRET"
-                  , OA.Credential [("auth_token", token c)]
-                  )
-
-
-type TestMonad c = ReaderT c Identity
-
-testCtx :: ByteString -> TestContext
-testCtx = TestContext $ makeMockNetworkConfig []
-
-testAuthCtx :: ByteString -> ByteString -> TestAuthContext
-testAuthCtx = TestAuthContext $ makeMockNetworkConfig []
-
-u :: MonadNetwork c (TestMonad c) => c -> TestMonad c (Query q (TestMonad c)) -> String
-u c q = show $ runIdentity $ with c $ toURI =<< q
+ua :: OAuthCommand q => AppKey -> Query q -> String
+ua = show . N.getUri . runIdentity ... mkOAuthRequest sign
+  where sign = return . appendParam ("signed", "true")
 
 
 
@@ -76,10 +48,10 @@ testGetBlogPosts = testGroup "getBlogPosts" cases
                   , testCase "auth: yes, args: yes" $ expect4 @=? actual4
                   ]
         expect1 = "http://api.tumblr.com/v2/blog/test1.tumblr.com/posts?api_key=KEY1"
-        actual1 = u (testCtx "KEY1") $ getBlogPosts "test1.tumblr.com"
+        actual1 = uk "KEY1" $ getPosts "test1.tumblr.com"
         expect2 = "http://api.tumblr.com/v2/blog/test2.tumblr.com/posts?limit=2&api_key=KEY2"
-        actual2 = u (testCtx "KEY2") $ getBlogPosts "test2.tumblr.com" &= Limit 2
-        expect3 = "http://api.tumblr.com/v2/blog/test3.tumblr.com/posts?auth_token=AUTH3"
-        actual3 = u (testAuthCtx "KEY3" "AUTH3") $ getBlogPosts "test3.tumblr.com"
-        expect4 = "http://api.tumblr.com/v2/blog/test4.tumblr.com/posts?limit=4&auth_token=AUTH4"
-        actual4 = u (testAuthCtx "KEY4" "AUTH4") $ getBlogPosts "test4.tumblr.com" &= Limit 4
+        actual2 = uk "KEY2" $ getPosts "test2.tumblr.com" &= Limit 2
+        expect3 = "http://api.tumblr.com/v2/blog/test3.tumblr.com/posts?api_key=KEY3&signed=true"
+        actual3 = ua "KEY3" $ getPosts "test3.tumblr.com"
+        expect4 = "http://api.tumblr.com/v2/blog/test4.tumblr.com/posts?limit=4&api_key=KEY4&signed=true"
+        actual4 = ua "KEY4" $ getPosts "test4.tumblr.com" &= Limit 4
