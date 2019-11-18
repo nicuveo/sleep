@@ -2,7 +2,7 @@
 Module: Web.Sleep.Tumblr.Simple
 
 A collection of helpers aiming at providing a good enough out of the box
-experience with the Tumblr API.
+exAPIKeyce with the Tumblr API.
 -}
 
 {-# LANGUAGE ConstraintKinds       #-}
@@ -69,7 +69,7 @@ data NetworkConfig m = NetworkConfig
 
 data TumblrK m = TumblrK
   { networkConfig :: NetworkConfig m
-  , apiKey        :: AppKey
+  , apiKey        :: APIKey
   }
 
 data TumblrA m = TumblrA
@@ -134,10 +134,10 @@ callA q = do
 
 -- simple reader wrappers
 
-withAPIKey :: NetworkConfig b -> AppKey -> ReaderT (TumblrK b) m a -> m a
+withAPIKey :: NetworkConfig b -> APIKey -> ReaderT (TumblrK b) m a -> m a
 withAPIKey nc ak = with $ TumblrK nc ak
 
-withOAuth :: NetworkConfig b -> AppKey -> OAuthFunction b -> ReaderT (TumblrA b) m a -> m a
+withOAuth :: NetworkConfig b -> APIKey -> OAuthFunction b -> ReaderT (TumblrA b) m a -> m a
 withOAuth nc ak sf = with $ TumblrA (TumblrK nc ak) sf
 
 

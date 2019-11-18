@@ -2,7 +2,7 @@
 
 module Web.Sleep.Tumblr.Auth (
   -- exported types
-  AppKey,
+  APIKey,
   AppSecret,
   OAuth,
   Credential,
@@ -22,7 +22,7 @@ import qualified Web.Authenticate.OAuth as OA
 
 -- type aliases
 
-type AppKey     = ByteString
+type APIKey     = ByteString
 type AppSecret  = ByteString
 type OAuth      = OA.OAuth
 type Credential = OA.Credential
@@ -32,7 +32,7 @@ type AuthCred   = (OAuth, Credential)
 
 -- exported functions
 
-tumblrOAuth :: AppKey -> AppSecret -> OAuth
+tumblrOAuth :: APIKey -> AppSecret -> OAuth
 tumblrOAuth key secret =
   OA.newOAuth { OA.oauthServerName      = "tumblr"
               , OA.oauthRequestUri      = "https://www.tumblr.com/oauth/request_token"

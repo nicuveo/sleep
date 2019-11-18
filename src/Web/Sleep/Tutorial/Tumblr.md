@@ -82,7 +82,7 @@ not.
 As a result, you could write the following function:
 
 ```haskell
-getLatestAudioPost :: AppKey -> IO (Either Error Post)
+getLatestAudioPost :: APIKey -> IO (Either Error Post)
 getLatestAudioPost key = do
   let query = getPostsByType "test.tumblr.com" AudioType &= Limit 1
   response <- S.httpLBS $ mkAPIKeyRequest key query
@@ -118,13 +118,13 @@ in an existing monadic structure, you can simply use the provided
 simple monadic context:
 
 ```haskell
-getBlogTitle :: N.Manager -> AppKey -> IO String
+getBlogTitle :: N.Manager -> APIKey -> IO String
 getBlogTitle m k =
   withAPIKey (defaultIONetworkConfig m) k $ do
     blog <- callKT $ getBlogInfo "blog1.tumblr.com"
     return $ blogTitle blog
 
-fetchBlogFollowers :: N.Manager -> AppKey -> OAuthFunction IO -> IO BlogSummaryList
+fetchBlogFollowers :: N.Manager -> APIKey -> OAuthFunction IO -> IO BlogSummaryList
 fetchBlogFollowers m k s =
   withOAuth (defaultIONetworkConfig m) k s $ callAT $ getBlogFollowers "blog2.tumblr.com"
 ```

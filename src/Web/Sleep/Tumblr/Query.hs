@@ -64,24 +64,6 @@ class QueryMethod q where
 
 
 
--- parameters
-
-type Parameter = (B.ByteString, B.ByteString)
-type ParametersMap = M.Map TypeRep Parameter
-
-class Typeable p => ToParameter p where
-  mkParam :: p -> Parameter
-
-class ToParameter p => QueryParam (q :: QueryName) p where
-  pAdd :: p -> Query q -> Query q
-  pAdd p q = q { params = M.insert (typeOf p) (mkParam p) $ params q }
-
-(&=) :: QueryParam q p => Query q -> p -> Query q
-(&=) = flip pAdd
-infixl 8 &=
-
-
-
 -- decode
 
 class Decode q r | q -> r where
@@ -96,11 +78,11 @@ class Decode q r | q -> r where
 type OAuthFunction m = N.Request -> m N.Request
 
 class OAuthCommand q where
-  mkOAuthRequest :: OAuthFunction m -> AppKey -> Query q -> m N.Request
+  mkOAuthRequest :: OAuthFunction m -> APIKey -> Query q -> m N.Request
   mkOAuthRequest = mkOAuthReq
 
 class OAuthCommand q => APIKeyCommand q where
-  mkAPIKeyRequest :: AppKey -> Query q -> N.Request
+  mkAPIKeyRequest :: APIKey -> Query q -> N.Request
   mkAPIKeyRequest = mkAPIKeyReq
 
 class APIKeyCommand q => Command q where
@@ -123,15 +105,29 @@ mkReq q = if | N.method req == N.methodGet  -> req
              | otherwise                    -> error "mkReq: unsupported method type"
   where req = appendParams (M.elems $ params q) $ baseRequest q
 
-mkAPIKeyReq :: AppKey -> Query q -> N.Request
+mkAPIKeyReq :: APIKey -> Query q -> N.Request
 mkAPIKeyReq k = appendParam ("api_key", k) . mkReq
 
-mkOAuthReq :: OAuthFunction m -> AppKey -> Query q -> m N.Request
+mkOAuthReq :: OAuthFunction m -> APIKey -> Query q -> m N.Request
 mkOAuthReq = (... mkAPIKeyReq)
 
 
 
 -- parameters
+
+type Parameter = (B.ByteString, B.ByteString)
+type ParametersMap = M.Map TypeRep Parameter
+
+class Typeable p => ToParameter p where
+  mkParam :: p -> Parameter
+
+class ToParameter p => QueryParam (q :: QueryName) p where
+  pAdd :: p -> Query q -> Query q
+  pAdd p q = q { params = M.insert (typeOf p) (mkParam p) $ params q }
+
+(&=) :: QueryParam q p => Query q -> p -> Query q
+(&=) = flip pAdd
+infixl 8 &=
 
 newtype BlogId   = BlogId   String     deriving (Show, Eq, Typeable, IsString)
 newtype Title    = Title    String     deriving (Show, Eq, Typeable, IsString)

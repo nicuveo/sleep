@@ -24,10 +24,10 @@ import           Web.Sleep.Tumblr.Query
 
 -- helpers
 
-uk :: APIKeyCommand q => AppKey -> Query q -> String
+uk :: APIKeyCommand q => APIKey -> Query q -> String
 uk = show . N.getUri ... mkAPIKeyRequest
 
-ua :: OAuthCommand q => AppKey -> Query q -> String
+ua :: OAuthCommand q => APIKey -> Query q -> String
 ua = show . N.getUri . runIdentity ... mkOAuthRequest sign
   where sign = return . appendParam ("signed", "true")
 
