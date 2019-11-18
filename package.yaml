@@ -61,13 +61,14 @@ executables:
 
 tests:
   tumblr-tests:
-    source-dirs: tests/tumblr
+    source-dirs:
+      - tests/tumblr
+      - src
     main: Tests.hs
     ghc-options:
       - -O2
       - -threaded -rtsopts -with-rtsopts=-N -fhpc
     dependencies:
-      - sleep
       - QuickCheck
       - directory
       - filepath

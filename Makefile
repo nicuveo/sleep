@@ -25,8 +25,8 @@ imports:
 report: test
 	mkdir -p tests/report
 	cd tests/report && \
-	hpc report ../../tumblr-tests.tix --srcdir=../.. --exclude=Main && \
-	hpc markup ../../tumblr-tests.tix --srcdir=../.. --exclude=Main
+	hpc report ../../tumblr-tests.tix --srcdir=../.. --exclude=Main --exclude=Web.Sleep.Tutorial.Tumblr && \
+	hpc markup ../../tumblr-tests.tix --srcdir=../.. --exclude=Main --exclude=Web.Sleep.Tutorial.Tumblr
 
 clean:
 	rm -f *.tix
