@@ -30,6 +30,7 @@ import           Data.Time.Clock.POSIX
 
 (...) :: (c -> d) -> (a -> b -> c) -> a -> b -> d
 (f ... g) x y = f $ g x y
+infixr 8 ...
 
 with :: c -> ReaderT c m r -> m r
 with = flip runReaderT
