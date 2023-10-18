@@ -3,11 +3,11 @@ dist-*
 cabal-dev
 *.o
 *.hi
+*.hie
 *.chi
 *.chs.h
 *.dyn_o
 *.dyn_hi
-*.tix
 .hpc
 .hsenv
 .cabal-sandbox/
@@ -18,8 +18,6 @@ cabal.sandbox.config
 *.eventlog
 .stack-work/
 cabal.project.local
+cabal.project.local~
 .HTF/
-tests/report
-imports_graph.png
-.dir-locals.el
-sleep.cabal
+.ghc.environment.*

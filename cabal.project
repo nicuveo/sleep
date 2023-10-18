@@ -1,0 +1,3 @@
+packages: core/sleep-core.cabal
+packages: tumblr/sleep-tumblr.cabal
+jobs: $ncpus

@@ -1,0 +1,42 @@
+cabal-version:      2.4
+name:               sleep-tumblr
+version:            0.1.0
+license-file:       LICENSE
+copyright:          Copyright (C) 2023 Antoine Leblanc
+maintainer:         nicuveo@gmail.com
+author:             Antoine Leblanc
+homepage:           https://github.com/nicuveo/sleep
+bug-reports:        https://github.com/nicuveo/sleep/issues
+synopsis:           Tumblr REST client
+category:           Web
+extra-source-files:
+    README.md
+    CHANGELOG.md
+
+source-repository head
+    type:     git
+    location: https://github.com/nicuveo/sleep.git
+
+library
+    exposed-modules:    Web.Sleep.Tumblr
+    hs-source-dirs:     src
+    default-language:   GHC2021
+    default-extensions:
+        AllowAmbiguousTypes ApplicativeDo BlockArguments DataKinds
+        DefaultSignatures DerivingVia FunctionalDependencies GADTs
+        LambdaCase MultiWayIf NoImplicitPrelude OverloadedStrings
+        PackageImports RecordWildCards RoleAnnotations StrictData
+        TypeFamilies ViewPatterns
+
+    ghc-options:
+        -Wcompat -Werror -Weverything -Wno-all-missed-specialisations
+        -Wno-implicit-prelude -Wno-missed-specialisations
+        -Wno-missing-deriving-strategies -Wno-missing-export-lists
+        -Wno-missing-exported-signatures -Wno-missing-import-lists
+        -Wno-missing-kind-signatures -Wno-missing-local-signatures
+        -Wno-missing-safe-haskell-mode -Wno-monomorphism-restriction
+        -Wno-safe -Wno-unsafe -fwarn-tabs -foptimal-applicative-do
+
+    build-depends:
+        base >=4.16 && <5,
+        sleep-core
