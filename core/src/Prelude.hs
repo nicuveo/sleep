@@ -39,6 +39,7 @@ import Control.Monad.Identity     as P
 import Control.Monad.Reader       as P
 import Control.Monad.State.Strict as P
 import Control.Monad.Trans.Maybe  as P (MaybeT (..))
+import Control.Monad.Writer       as P
 import Data.Bifunctor             as P (bimap)
 import Data.Bool                  as P (bool)
 import Data.Either                as P (lefts, partitionEithers, rights)
@@ -60,7 +61,7 @@ import Data.Maybe                 as P (catMaybes, fromMaybe, isJust, isNothing,
 import Data.Ord                   as P (comparing)
 import Data.Semigroup             as P (Semigroup (..))
 import Data.Sequence              as P (Seq)
-import Data.String                as P (IsString)
+import Data.String                as P (IsString, fromString)
 import Data.Text                  as P (Text)
 import Data.Traversable           as P (for)
 import Data.Void                  as P (Void, absurd)

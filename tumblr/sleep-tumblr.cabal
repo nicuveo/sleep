@@ -10,33 +10,76 @@ bug-reports:        https://github.com/nicuveo/sleep/issues
 synopsis:           Tumblr REST client
 category:           Web
 extra-source-files:
-    README.md
-    CHANGELOG.md
+  CHANGELOG.md
+  README.md
 
 source-repository head
-    type:     git
-    location: https://github.com/nicuveo/sleep.git
+  type:     git
+  location: https://github.com/nicuveo/sleep.git
 
 library
-    exposed-modules:    Web.Sleep.Tumblr
-    hs-source-dirs:     src
-    default-language:   GHC2021
-    default-extensions:
-        AllowAmbiguousTypes ApplicativeDo BlockArguments DataKinds
-        DefaultSignatures DerivingVia FunctionalDependencies GADTs
-        LambdaCase MultiWayIf NoImplicitPrelude OverloadedStrings
-        PackageImports RecordWildCards RoleAnnotations StrictData
-        TypeFamilies ViewPatterns
+  exposed-modules:
+    Web.Sleep.Tumblr
+    Web.Sleep.Tumblr.Auth
+    Web.Sleep.Tumblr.Commands
+    Web.Sleep.Tumblr.Data
+    Web.Sleep.Tumblr.Parameters
+    Web.Sleep.Tumblr.Response
 
-    ghc-options:
-        -Wcompat -Werror -Weverything -Wno-all-missed-specialisations
-        -Wno-implicit-prelude -Wno-missed-specialisations
-        -Wno-missing-deriving-strategies -Wno-missing-export-lists
-        -Wno-missing-exported-signatures -Wno-missing-import-lists
-        -Wno-missing-kind-signatures -Wno-missing-local-signatures
-        -Wno-missing-safe-haskell-mode -Wno-monomorphism-restriction
-        -Wno-safe -Wno-unsafe -fwarn-tabs -foptimal-applicative-do
+  hs-source-dirs:     src
+  default-language:   GHC2021
+  default-extensions:
+    AllowAmbiguousTypes
+    ApplicativeDo
+    BlockArguments
+    DataKinds
+    DefaultSignatures
+    DerivingVia
+    DuplicateRecordFields
+    FunctionalDependencies
+    GADTs
+    LambdaCase
+    MultiWayIf
+    NoImplicitPrelude
+    OverloadedStrings
+    PackageImports
+    RecordWildCards
+    RoleAnnotations
+    StrictData
+    TypeFamilies
+    ViewPatterns
 
-    build-depends:
-        base >=4.16 && <5,
-        sleep-core
+  ghc-options:
+    -Wcompat -Werror -Weverything -Wno-all-missed-specialisations
+    -Wno-implicit-prelude -Wno-missed-specialisations
+    -Wno-missing-deriving-strategies -Wno-missing-export-lists
+    -Wno-missing-exported-signatures -Wno-missing-import-lists
+    -Wno-missing-kind-signatures -Wno-missing-local-signatures
+    -Wno-missing-safe-haskell-mode -Wno-monomorphism-restriction
+    -Wno-safe -Wno-unsafe -fwarn-tabs -foptimal-applicative-do
+
+  build-depends:
+    , aeson
+    , base         >=4.16 && <5
+    , bytestring
+    , http-client
+    , http-types
+    , lens
+    , network-uri
+    , sleep-core
+    , text
+    , time
+
+-- authenticate-oauth,
+-- containers,
+-- data-has,
+-- http-client-tls,
+-- http-conduit,
+-- http-types,
+-- mtl,
+-- resourcet,
+-- safe-exceptions,
+-- transformers,
+-- transformers-base,
+-- uri-encode,
+-- vector,

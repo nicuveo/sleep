@@ -18,7 +18,13 @@ source-repository head
     location: https://github.com/nicuveo/sleep.git
 
 library
-    exposed-modules:    Prelude
+    exposed-modules:
+        Prelude
+        Web.Sleep.Core.Command
+        Web.Sleep.Core.Error
+        Web.Sleep.Core.Network
+        Web.Sleep.Core.Request
+
     hs-source-dirs:     src
     default-language:   GHC2021
     default-extensions:
@@ -39,9 +45,13 @@ library
 
     build-depends:
         base >=4.16 && <5,
+        bytestring,
         containers,
         hashable,
+        http-client,
+        http-types,
         mtl,
+        safe-exceptions,
         text,
         transformers,
-        unordered-containers
+        unordered-containers,
