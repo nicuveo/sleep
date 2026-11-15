@@ -1,119 +1,107 @@
 module Web.Sleep.Tumblr.Commands
-  ( cmd
-  , getBlogInfo
+  ( -- * Blog commands
+    getBlogInfo
   , getBlogAvatar
+    -- * Post commnads
+  , GetPostsArgs (..)
+  , getPostsArgs
+  , getPosts
+  , getPostById
   ) where
 
 import "sleep-core" Prelude
 
-import Data.Aeson                  qualified as A
-import Data.ByteString             qualified as B
-import Data.Kind                   (Type)
-import Network.HTTP.Client         qualified as N
-import Network.HTTP.Types          (Method)
+import Data.Text                qualified as Text
+import Data.Time.Clock
+import Data.Time.Clock.POSIX
+import Network.HTTP.Types
 
-import Web.Sleep.Core.Command
-import Web.Sleep.Core.Error
-import Web.Sleep.Core.Request
-
-import Web.Sleep.Tumblr.Auth
 import Web.Sleep.Tumblr.Data
-import Web.Sleep.Tumblr.Parameters
-import Web.Sleep.Tumblr.Response
-
-
---------------------------------------------------------------------------------
--- Command class
-
-class Commandable a where
-  type Result a :: Type
-  cmd :: a -> Command (Result a)
+import Web.Sleep.Tumblr.Monad
+import Web.Sleep.Tumblr.Request
 
 
 --------------------------------------------------------------------------------
 -- Blog commands
 
--- blog info
+getBlogInfo :: (MonadAPIKeyTumblr m) => BlogId -> m Blog
+getBlogInfo blogId = apiRequest $
+  methodGet
+    /. "/v2/blog/" <> blogId <> "/info"
 
-data GetBlogInfo = GetBlogInfo
-  { userAgent :: UserAgent
-  , queryAuth :: APIKeyRequired
-  , blogId    :: BlogId
-  }
+getBlogAvatar :: (MonadTumblr m) => BlogId -> m PNGImage
+getBlogAvatar blogId = request $
+  methodGet
+    /. "/v2/blog/" <> blogId <> "/avatar"
 
-getBlogInfo :: UserAgent -> APIKeyRequired -> BlogId -> GetBlogInfo
-getBlogInfo = GetBlogInfo
-
-instance Commandable GetBlogInfo where
-  type Result GetBlogInfo = Blog
-  cmd (GetBlogInfo {..}) = Command
-    { request = makeBlogRequest blogId "GET" "/info" userAgent queryAuth []
-    , decode  = decodeJSON @Blog
-    }
-
--- blog avatar
-
-data GetBlogAvatar = GetBlogAvatar
-  { avatarSize :: Maybe AvatarSize
-  , userAgent  :: UserAgent
-  , queryAuth  :: APIKeyRequired
-  , blogId     :: BlogId
-  }
-
-getBlogAvatar :: UserAgent -> APIKeyRequired -> BlogId -> GetBlogAvatar
-getBlogAvatar = GetBlogAvatar Nothing
-
-instance Commandable GetBlogAvatar where
-  type Result GetBlogAvatar = PNGImage
-  cmd (GetBlogAvatar {..}) = Command
-    { request = makeBlogRequest blogId "GET" ("/avatar" <> size) userAgent queryAuth []
-    , decode  = decodeJSON @PNGImage
-    }
-    where
-      size = case avatarSize of
-        Nothing -> ""
-        Just as -> "/" <> toText as
-
--- blog posts
-
-{-
-data GetBlogPosts = GetBlogPosts
-  { userAgent :: UserAgent
-  , queryAuth :: APIKeyRequired
-  , blogId    :: BlogId
-  , postType  :: PostType
-  , postId    :: PostId
-  }
--}
 
 
 --------------------------------------------------------------------------------
--- Internal helpers
+-- Post commands
 
-makeBlogRequest
-  :: BlogId
-  -> Method
-  -> Text
-  -> UserAgent
-  -> AuthorizationLevel n k t
-  -> [(B.ByteString, Maybe B.ByteString)]
-  -> N.Request
-makeBlogRequest blog method path userAgent auth qs =
-  N.defaultRequest
-    { N.method = method
-    , N.host   = "api.tumblr.com"
-    , N.path   = "/v2/blog/" <> toByteString blog <> toByteString path
-    }
-  & N.setQueryString qs
-  & addHeader "User-Agent" (toByteString userAgent)
-  & signRequest auth
+data SortOrder = Asc | Desc
+  deriving (Eq, Show, Ord, Bounded, Enum)
 
-decodeJSON
-  :: A.FromJSON (Envelope a)
-  => B.ByteString
-  -> Either Error a
-decodeJSON v = do
-  envelope <- left toClientError $ A.eitherDecodeStrict v
-  unwrap envelope
+data GetPostsArgs = GetPostsArgs
+  { getPostsType   :: Maybe PostType
+  , getPostsTags   :: [Text]
+  , getPostsLimit  :: Int
+  , getPostsOffset :: Int
+  , getPostsBefore :: Maybe UTCTime
+  , getPostsAfter  :: Maybe UTCTime
+  , getPostsSort   :: SortOrder
+  }
+  deriving (Show)
+
+getPostsArgs :: GetPostsArgs
+getPostsArgs = GetPostsArgs
+  { getPostsType   = Nothing
+  , getPostsTags   = []
+  , getPostsLimit  = 20
+  , getPostsOffset = 0
+  , getPostsBefore = Nothing
+  , getPostsAfter  = Nothing
+  , getPostsSort   = Desc
+  }
+
+getPosts :: (MonadAPIKeyTumblr m) => BlogId -> GetPostsArgs -> m [Post]
+getPosts blogId GetPostsArgs {..} = apiRequest $ addTags $
+  methodGet
+    /. "/v2/blog/" <> blogId <> "/posts/" <> pType
+    &.  ("limit",  Just $ show getPostsLimit)
+    &.  ("offset", Just $ show getPostsOffset)
+    &.  ("sort",   Just pSort)
+    &?. ("before",) . renderTime <$> getPostsBefore
+    &?. ("after",)  . renderTime <$> getPostsAfter
   where
-    toClientError = ClientError 1 . fromString
+    addTags = case getPostsTags of
+      []    -> id
+      [tag] -> (&. ("tag", Just tag))
+      tags  -> flip (foldl' addTag) (zip [0..] tags)
+
+    addTag req (i :: Int, tag) =
+      req &. (Text.pack $ "tag[" ++ show i ++ "]", Just tag)
+
+    pType = case getPostsType of
+      Nothing         -> ""
+      Just AnswerType -> "answer"
+      Just AudioType  -> "audio"
+      Just ChatType   -> "chat"
+      Just LinkType   -> "link"
+      Just PhotoType  -> "photo"
+      Just QuoteType  -> "quote"
+      Just TextType   -> "text"
+      Just VideoType  -> "video"
+
+    pSort = case getPostsSort of
+      Asc  -> "asc"  :: Text
+      Desc -> "desc" :: Text
+
+    renderTime =
+      show . nominalDiffTimeToSeconds . utcTimeToPOSIXSeconds
+
+getPostById :: (MonadAPIKeyTumblr m) => BlogId -> PostId -> m Post
+getPostById blogId pId = apiRequest $
+  methodGet
+    /. "/v2/blog/" <> blogId <> "/posts"
+    &. ("id", Just $ show pId)

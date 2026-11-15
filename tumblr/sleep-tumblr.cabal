@@ -23,8 +23,10 @@ library
     Web.Sleep.Tumblr.Auth
     Web.Sleep.Tumblr.Commands
     Web.Sleep.Tumblr.Data
-    Web.Sleep.Tumblr.Parameters
+    Web.Sleep.Tumblr.Monad
+    Web.Sleep.Tumblr.Request
     Web.Sleep.Tumblr.Response
+    Web.Sleep.Tumblr.Simple
 
   hs-source-dirs:     src
   default-language:   GHC2021
@@ -50,18 +52,17 @@ library
     ViewPatterns
 
   ghc-options:
-    -Wcompat -Werror -Weverything -Wno-all-missed-specialisations
-    -Wno-implicit-prelude -Wno-missed-specialisations
-    -Wno-missing-deriving-strategies -Wno-missing-export-lists
-    -Wno-missing-exported-signatures -Wno-missing-import-lists
-    -Wno-missing-kind-signatures -Wno-missing-local-signatures
-    -Wno-missing-safe-haskell-mode -Wno-monomorphism-restriction
-    -Wno-safe -Wno-unsafe -fwarn-tabs -foptimal-applicative-do
+    -Wall -Werror -Wcompat -Widentities -Wincomplete-record-updates
+    -Wincomplete-uni-patterns -Wpartial-fields -Wredundant-constraints
+    -Wtabs -Wno-unused-do-bind -fhide-source-paths
+    -foptimal-applicative-do -funbox-small-strict-fields
 
   build-depends:
+    , base                >=4.16 && <5
     , aeson
-    , base         >=4.16 && <5
+    , authenticate-oauth
     , bytestring
+    , http-api-data
     , http-client
     , http-types
     , lens
@@ -69,7 +70,12 @@ library
     , sleep-core
     , text
     , time
+    , vector
 
+--    , http-api-data
+--    , lens
+--    , network-uri
+--    , time
 -- authenticate-oauth,
 -- containers,
 -- data-has,

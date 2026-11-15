@@ -31,7 +31,7 @@ module Prelude
 --------------------------------------------------------------------------------
 -- Re-exports
 
-import Control.Applicative        as P (liftA, liftA2)
+import Control.Applicative        as P (liftA)
 import Control.Arrow              as P (first, left, second, (&&&), (***),
                                         (<<<), (>>>))
 import Control.Monad.Except       as P
@@ -51,10 +51,9 @@ import Data.Functor.Const         as P (Const (..))
 import Data.Hashable              as P (Hashable)
 import Data.HashMap.Strict        as P (HashMap, mapKeys)
 import Data.HashSet               as P (HashSet)
-import Data.List                  as P (find, findIndex, foldl', group,
-                                        intercalate, intersect, intersperse,
-                                        lookup, sort, sortBy, sortOn, union,
-                                        unionBy, (\\))
+import Data.List                  as P (find, findIndex, group, intercalate,
+                                        intersect, intersperse, lookup, sort,
+                                        sortBy, sortOn, union, unionBy, (\\))
 import Data.List.NonEmpty         as P (NonEmpty (..), nonEmpty)
 import Data.Maybe                 as P (catMaybes, fromMaybe, isJust, isNothing,
                                         listToMaybe, maybeToList)
@@ -135,7 +134,7 @@ unionWithKeyM ::
   HashMap k v ->
   HashMap k v ->
   m (HashMap k v)
-unionWithKeyM f m1 m2 = foldM step m1 (M.toList m2)
+unionWithKeyM f m1 m2 = foldlM step m1 (M.toList m2)
   where
     step m (k, new) = case M.lookup k m of
       Nothing -> pure $ M.insert k new m

@@ -10,48 +10,57 @@ bug-reports:        https://github.com/nicuveo/sleep/issues
 synopsis:           Sleep internal library
 category:           Web
 extra-source-files:
-    README.md
-    CHANGELOG.md
+  CHANGELOG.md
+  README.md
 
 source-repository head
-    type:     git
-    location: https://github.com/nicuveo/sleep.git
+  type:     git
+  location: https://github.com/nicuveo/sleep.git
 
 library
-    exposed-modules:
-        Prelude
-        Web.Sleep.Core.Command
-        Web.Sleep.Core.Error
-        Web.Sleep.Core.Network
-        Web.Sleep.Core.Request
+  exposed-modules:
+    Prelude
+    Web.Sleep.Core.Error
+    Web.Sleep.Core.Request
 
-    hs-source-dirs:     src
-    default-language:   GHC2021
-    default-extensions:
-        AllowAmbiguousTypes ApplicativeDo BlockArguments DataKinds
-        DefaultSignatures DerivingVia FunctionalDependencies GADTs
-        LambdaCase MultiWayIf NoImplicitPrelude OverloadedStrings
-        PackageImports RecordWildCards RoleAnnotations StrictData
-        TypeFamilies ViewPatterns
+  hs-source-dirs:     src
+  default-language:   GHC2021
+  default-extensions:
+    AllowAmbiguousTypes
+    ApplicativeDo
+    BlockArguments
+    DataKinds
+    DefaultSignatures
+    DerivingVia
+    FunctionalDependencies
+    GADTs
+    LambdaCase
+    MultiWayIf
+    NoImplicitPrelude
+    OverloadedStrings
+    PackageImports
+    RecordWildCards
+    RoleAnnotations
+    StrictData
+    TypeFamilies
+    ViewPatterns
 
-    ghc-options:
-        -Wcompat -Werror -Weverything -Wno-all-missed-specialisations
-        -Wno-implicit-prelude -Wno-missed-specialisations
-        -Wno-missing-deriving-strategies -Wno-missing-export-lists
-        -Wno-missing-exported-signatures -Wno-missing-import-lists
-        -Wno-missing-kind-signatures -Wno-missing-local-signatures
-        -Wno-missing-safe-haskell-mode -Wno-monomorphism-restriction
-        -Wno-safe -Wno-unsafe -fwarn-tabs -foptimal-applicative-do
+  ghc-options:
+    -Wall -Werror -Wcompat -Widentities -Wincomplete-record-updates
+    -Wincomplete-uni-patterns -Wpartial-fields -Wredundant-constraints
+    -Wtabs -Wno-unused-do-bind -fhide-source-paths
+    -foptimal-applicative-do -funbox-small-strict-fields
 
-    build-depends:
-        base >=4.16 && <5,
-        bytestring,
-        containers,
-        hashable,
-        http-client,
-        http-types,
-        mtl,
-        safe-exceptions,
-        text,
-        transformers,
-        unordered-containers,
+  build-depends:
+    , base                  >=4.16 && <5
+    , bytestring
+    , containers
+    , hashable
+    , http-api-data
+    , http-client
+    , http-types
+    , mtl
+    , safe-exceptions
+    , text
+    , transformers
+    , unordered-containers

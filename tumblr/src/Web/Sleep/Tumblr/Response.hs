@@ -7,6 +7,8 @@ import "sleep-core" Prelude
 
 import Data.Aeson
 import Data.Aeson.Types
+import Data.Text            qualified as Text
+import Data.Vector          qualified as Vector
 
 import Web.Sleep.Core.Error
 
@@ -39,17 +41,19 @@ instance FromJSON Meta where
 
 parseEnvelopeWith :: (Object -> Parser (Envelope a)) -> Value -> Parser (Envelope a)
 parseEnvelopeWith toEnvelope = withObject "envelope" \o -> do
-  Meta status _msg <- o .: "meta"
+  Meta status msg <- o .: "meta"
   if status >= 200 && status < 300
   then toEnvelope o
-  else undefined -- TODO: handle errors
-
-{-
-    let result s = return $ Envelope $ Left $ ServerError status $ msg ++ s
-    maybeErrors <- o .:? "errors"
-    case maybeErrors of
-      Nothing -> result ""
-      Just es -> do
-        detail <- withObject "error" (.: "detail") =<< withArray "errors" (return . V.head) es
-        result $ " (" ++ detail ++ ")"
--}
+  else do
+    o .:? "errors" >>= \case
+      Nothing -> failWith status msg
+      Just es -> displayErrors status msg es
+  where
+    failWith status errorMsg =
+      pure $ Envelope $ Left $ ServerError status $ Text.pack errorMsg
+    displayErrors status msg = withArray "errors" \errs -> do
+      errorList <- traverse displayError $ Vector.toList errs
+      failWith status $ msg ++ "\n" ++ unlines errorList
+    displayError = withObject "error" \err -> do
+      msg <- err .: "detail"
+      pure $ "  - " ++ msg

@@ -87,6 +87,8 @@ data Video = Video
   , _videoCode  :: HTML
   } deriving (Show, Eq)
 
+type BlogId = Text
+
 data Blog = Blog
   { _blogTitle       :: Text
   , _blogName        :: Text

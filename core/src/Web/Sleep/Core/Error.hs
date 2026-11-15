@@ -1,3 +1,5 @@
+{-# OPTIONS_GHC -Wno-partial-fields #-}
+
 module Web.Sleep.Core.Error where
 
 import "this" Prelude
@@ -10,12 +12,21 @@ import Text.Printf
 -- * Generic error type
 
 data Error
-  = ServerError { errorCode :: Int, errorMsg :: Text }
-  | ClientError { errorCode :: Int, errorMsg :: Text }
+  = HttpError { errorMsg :: Text }
+  | NetworkError { errorCode :: Int }
+  | ServerError { errorCode :: Int, errorMsg :: Text }
+  | JSONError { errorMsg :: Text }
   deriving (Eq)
 
 instance Show Error where
-  show (ServerError c m) = printf "server error: %s (code %d)" m c
-  show (ClientError c m) = printf "client error: %s (code %d)" m c
+  show = \case
+    HttpError msg ->
+      printf "http error: %s" msg
+    NetworkError code ->
+      printf "network error: %d" code
+    ServerError code msg ->
+      printf "server error: %s (code %d)" msg code
+    JSONError msg ->
+      printf "serialization error: %s" msg
 
 instance Exception Error

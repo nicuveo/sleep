@@ -11,23 +11,54 @@ module Web.Sleep.Core.Request
 
 import "this" Prelude
 
-import Data.ByteString           qualified as B
-import Network.HTTP.Client       qualified as N
-import Network.HTTP.Types.Header qualified as N
+import Data.ByteString           qualified as BS
+import Data.Text.Encoding        (encodeUtf8)
+import Network.HTTP.Client       (Request)
+import Network.HTTP.Client       qualified as Network
+import Network.HTTP.Types.Header qualified as Network
+import Web.HttpApiData           (ToHttpApiData)
+import Web.HttpApiData           qualified as HttpApiData
 
-
-addParameter :: B.ByteString -> B.ByteString -> N.Request -> N.Request
-addParameter name val req = req { N.queryString = append $ N.queryString req }
+addParameter
+  :: (ToHttpApiData s)
+  => s       -- ^ parameter name
+  -> Maybe s -- ^ parameter value
+  -> Request
+  -> Request
+addParameter name value req =
+  req { Network.queryString = append $ Network.queryString req }
   where
+    parameter =
+      encodeUtf8 $ HttpApiData.toQueryParam name <>
+        case value of
+          Nothing  -> ""
+          Just val -> "=" <> HttpApiData.toQueryParam val
     append qs
-      | B.null qs = B.concat [         name, "=", val]
-      | otherwise = B.concat [qs, "&", name, "=", val]
+      | BS.null qs = BS.concat [         parameter]
+      | otherwise  = BS.concat [qs, "&", parameter]
 
-addParameters :: Foldable t => t (B.ByteString, B.ByteString) -> N.Request -> N.Request
-addParameters = flip $ foldl' $ flip $ uncurry addParameter
+addParameters
+  :: (ToHttpApiData s, Foldable t)
+  => t (s, Maybe s)
+  -> Request
+  -> Request
+addParameters =
+  flip $ foldl' $ flip $ uncurry addParameter
 
-addHeader :: N.HeaderName -> B.ByteString -> N.Request -> N.Request
-addHeader hn hv req = req { N.requestHeaders = N.requestHeaders req ++ [ (hn, hv) ] }
+addHeader
+  :: (ToHttpApiData s)
+  => Network.HeaderName
+  -> s
+  -> Request
+  -> Request
+addHeader hn hv req =
+  req { Network.requestHeaders =
+        Network.requestHeaders req ++ [(hn, HttpApiData.toHeader hv)]
+      }
 
-setBody :: B.ByteString -> N.Request -> N.Request
-setBody body req = req { N.requestBody = N.RequestBodyBS body }
+setBody
+  :: BS.ByteString
+  -> Request
+  -> Request
+setBody body req =
+  req { Network.requestBody = Network.RequestBodyBS body }
